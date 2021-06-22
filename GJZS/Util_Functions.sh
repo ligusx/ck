@@ -180,7 +180,7 @@ Install_curl() {
     jian2=$Script_Dir/META-INF/com/google/android/update-binary
     WGET -c -O $jian "http://d0.ananas.chaoxing.com/download/$url"
     [[ ! -f "$jian" ]] && abort "下载文件失败"
-    echo "- 开始安装curl"
+    echo "开始安装curl"
     rm -rf $Script_Dir
     mkdir -p $Script_Dir
     unzip -oq "$jian" 'META-INF/com/google/android/update-binary' -d $Script_Dir
@@ -223,16 +223,16 @@ Install_Applet() {
                                     [[ $ABI = x86* ]] && mv -f "$ELF2_Path/x86/"* "$ELF2_Path"
                                 ;;
                             esac
-                            echo "- $name-$versionCode安装成功。"
+                            echo "$name-$versionCode安装成功。"
                             rm -rf "$Download_File" $ELF2_Path/{arm,arm64,x86}
                     fi
             fi
         }
                            if [[ -z "$JCe3" || ! -f "$ELF2_Path/CQ" ]]; then
-                               echo "- 开始安装$name-$versionCode"
+                               echo "开始安装$name-$versionCode"
                                Start_Install2 "$@"
                            elif [[ "$JCe3" -lt "$versionCode" ]]; then
-                               echo "- 开始更新$name-$versionCode"
+                               echo "开始更新$name-$versionCode"
                                Start_Install2 "$@"
                            fi
 }
@@ -249,17 +249,17 @@ Cloud_Update() {
             S=更新
         fi
             if [[ -n "$S" ]]; then
-                echo "- 正在$S云端页面：$Cloud_Version"
+                echo "正在$S云端页面：$Cloud_Version"
                     XiaZai -s "$CODING/$Cloud_ID" "$File"
                     if [[ -f "$File" ]]; then
                         Check_MD5=`md5sum "$File" 2>/dev/null | sed 's/ .*//g'`
                            if [[ "$Check_MD5" != "$Cloud_MD5" ]]; then
                                rm -f $File
-                               abort2 "- 更新云端页面失败"
+                               abort2 "更新云端页面失败"
                            else
                                unzip -oq "$File" -d ~
                                    if [[ $? = 0 ]]; then
-                                       echo "- $S云端页面成功"
+                                       echo "$S云端页面成功"
                                        echo "$Cloud_Version" >"$JCe"
                                        find ~ -exec chmod 700 {} \; -exec chown $APP_USER_ID:$APP_USER_ID {} \; &
                                        rm -f "$File"
@@ -311,10 +311,10 @@ Start_Installing_Busybox() {
     }
 
         if [[ -z "$JCe2" || ! -L $ELF4_Path/true ]]; then
-            echo "- 开始安装Busybox"
+            echo "开始安装Busybox"
             . "$Load" Install_busybox
         elif [[ "$JCe2" -lt "$CloudBusybox" ]]; then
-            echo "- 开始更新Busybox"
+            echo "开始更新Busybox"
             . "$Load" Install_busybox
         fi
 }
@@ -352,15 +352,15 @@ End_Time() {
                 min=`expr $s / 60`
                 s=`expr $s % 60`
             fi
-            echo "- 本次$1用时：$h小时$min分钟$s秒$ms毫秒"
+            echo "本次$1用时：$h小时$min分钟$s秒$ms毫秒"
         elif [[ $s -ge 60 ]]; then
             min=`expr $s / 60`
             s=`expr $s % 60`
-            echo "- 本次$1用时：$min分钟$s秒$ms毫秒"
+            echo "本次$1用时：$min分钟$s秒$ms毫秒"
         elif [[ -n $s ]]; then
-            echo "- 本次$1用时：$s秒$ms毫秒"
+            echo "本次$1用时：$s秒$ms毫秒"
         else
-            echo "- 本次$1用时：$ms毫秒"
+            echo "本次$1用时：$ms毫秒"
         fi
 }
 
@@ -395,7 +395,7 @@ XiaZai() {
                 echo 2 >"$Status"
                 abort "！No such \"$dir\" directory"
             fi
-                CURL $1 -C - -o "$3" -w "- HTTP状态码：%{http_code}\n" -kL "$2"
+                CURL $1 -C - -o "$3" -w "HTTP状态码：%{http_code}\n" -kL "$2"
                 code=$?
                 echo "$code" >"$Status"
                 [[ $code -eq 6 ]] && error "未连接到互联网"
@@ -408,8 +408,8 @@ EndMD5() {
         Deleting_file
         abort2 "！ ["$File_Name"] MD5校验失败，如果一直无法下载请在搞机助手功能区 -->刷新搞机助手云端状态后重试"
     else
-        echo "- ["$File_Name"]文件MD5校验成功"
-        echo "- MD5=$md5_down"
+        echo "["$File_Name"]文件MD5校验成功"
+        echo "MD5=$md5_down"
         return 0
     fi
 }
@@ -431,7 +431,7 @@ Start_Download() {
                 until [[ -f "$Download_File2" ]]; do
                     [[ `cat "$Status"` != none ]] && break
                 done
-                    echo "- 连接服务器成功"
+                    echo "连接服务器成功"
                     if [[ $File_Size -ge 1048576 ]]; then
                         File_Type=`awk "BEGIN{print $File_Size/1048576}"`MB
                     elif [[ $File_Size -ge 1024 ]]; then
@@ -439,7 +439,7 @@ Start_Download() {
                     elif [[ $File_Size -le 1024 ]]; then
                         File_Type=${File_Size}b
                     fi
-                    echo "- 正在下载 [$File_Name2]，文件总大小：${File_Type}"
+                    echo "正在下载 [$File_Name2]，文件总大小：${File_Type}"
                     echo -e "\n-----------------------------------------"
                     [[ `cat "$Status"` != none ]] && End_Time 下载 && EndMD5
 
@@ -460,13 +460,13 @@ Start_Download() {
                                        elif [[ $YiXZ_2 -le 1024 ]]; then
                                            Size2=${YiXZ_2}b
                                        fi
-                                           Schedule() { echo "- 已下载：${Size2}/$File_Type 已完成${Percentage}%" ; echo "-----------------------------------------"; }
+                                           Schedule() { echo "已下载：${Size2}/$File_Type 已完成${Percentage}%" ; echo "-----------------------------------------"; }
                                            if [[ $YiXZ_SuDu -ge 1048576 ]]; then
-                                               echo -n "- 正在下载：`awk "BEGIN{print $YiXZ_SuDu/1048576}"`MB/s"; echo " 剩余时间$Remaining_Time/s"; Schedule
+                                               echo -n "正在下载：`awk "BEGIN{print $YiXZ_SuDu/1048576}"`MB/s"; echo " 剩余时间$Remaining_Time/s"; Schedule
                                            elif [[ $YiXZ_SuDu -ge 1024 ]]; then
-                                               echo -n "- 正在下载：`awk "BEGIN{print $YiXZ_SuDu/1024}"`KB/s"; echo " 剩余时间$Remaining_Time/s"; Schedule
+                                               echo -n "正在下载：`awk "BEGIN{print $YiXZ_SuDu/1024}"`KB/s"; echo " 剩余时间$Remaining_Time/s"; Schedule
                                            elif [[ $YiXZ_SuDu -lt 1024 && $YiXZ_SuDu -gt 0 ]]; then
-                                               echo -n "- 正在下载：${YiXZ_SuDu}b/s"; echo " 剩余时间$Remaining_Time/s"; Schedule
+                                               echo -n "正在下载：${YiXZ_SuDu}b/s"; echo " 剩余时间$Remaining_Time/s"; Schedule
                                            elif [[ $YiXZ_SuDu -eq 0 ]]; then
                                                code=`cat "$Status"`
                                                if [[ $code = 0 ]]; then
@@ -483,7 +483,7 @@ Start_Download() {
                                fi
                         done
         else
-            echo "- 正在下载 [$File_Name2]配置文件……文件总大小：${File_Size}b"
+            echo "正在下载 [$File_Name2]配置文件……文件总大小：${File_Size}b"
             Start_Time
             XiaZai -# "$@"
             End_Time 下载
@@ -745,7 +745,7 @@ End_installation() {
     Inject_prop
     case "$MODID" in
         riru_edxposed | riru_edxposed_sandhook)
-            echo "- 已跳过模块启动脚本"
+            echo "已跳过模块启动脚本"
         ;;
         
         *)
@@ -756,7 +756,7 @@ End_installation() {
     [[ ! -d "$lu" ]] && ls "$MODPATH" >"$Status" && abort2 "\n！ "$MODNAME"安装失败"
     Write_Record
     cp -arf "$lu"/* "$system"
-    [[ $? = 0 ]] && echo "- "$MODNAME"安装成功" && rm -rf "$lu" || abort "！$MODNAME安装失败"
+    [[ $? = 0 ]] && echo ""$MODNAME"安装成功" && rm -rf "$lu" || abort "$MODNAME安装失败"
     Unload
     if [[ -f "$MODPATH/module.prop" ]]; then
         echo "THE END"
@@ -804,7 +804,7 @@ Power() {
 }
 
 module_prop() {
-    echo "- 正在打印模块信息……"
+    echo "正在打印模块信息……"
 cat <<Han >$Module_XinXi
 id=$id
 name=$name
@@ -820,10 +820,10 @@ Clean_install() {
     mask $id
     rm -rf $Module
     mkdir -p $Module
-    ui_print "- 开始安装 $name-$version($versionCode)"
-    ui_print "- 安装目录：$Module"
-    ui_print "- 模块作者：$author"
-    ui_print "- Powered by Magisk & topjohnwu"
+    ui_print "开始安装 $name-$version($versionCode)"
+    ui_print "安装目录：$Module"
+    ui_print "模块作者：$author"
+    ui_print "Powered by Magisk & topjohnwu"
     abort() {
         rm -rf $Module
         error "$@"
