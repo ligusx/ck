@@ -69,13 +69,13 @@
                 value: true
             }, {
                 name: 'allow_query_links',
-                value: false
+                value: true
             }, {
                 name: 'enable_target_self',
                 value: false
             }, {
                 name: 'enable_animation',
-                value: true
+                value: false
             }, {
                 name: 'delay_on_hover',
                 value: 65
