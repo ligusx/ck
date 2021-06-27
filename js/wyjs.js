@@ -78,7 +78,7 @@
                 value: true
             }, {
                 name: 'delay_on_hover',
-                value: 100
+                value: 65
             }, {
                 name: 'exclude_list',
                 value: ''
