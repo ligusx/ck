@@ -1,0 +1,727 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Base64 在线编码解码 | Base64 加密解密 - Base64.us</title>
+<meta name="keywords" content="Base64,Base64编码,Base64解码,Base64加密,Base64解密" />
+<script src="https://cdn.jsdelivr.net/npm/jquery@2.1.4/dist/jquery.min.js" type="text/javascript"></script>
+<script src="js/common.js" type="text/javascript"></script>
+<script src="js/base64.js" type="text/javascript"></script>
+<script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.8/dist/clipboard.min.js" type="text/javascript"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.4/dist/js/bootstrap.min.js" type="text/javascript"></script>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.4/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="icon" href="favicon.png" type="image/png"/>
+<style type="text/css">
+body {
+	padding-top: 40px;
+	padding-bottom: 40px;
+	background-color: #f5f5f5;
+	font-family: 'Hiragino Sans GB', 'Microsoft YaHei';
+}
+a, input, button {
+	outline: none !important;
+}
+a:focus, a:hover, .btn-link:focus, .btn-link:hover {
+    text-decoration: underline;
+    text-underline-position: under;
+}
+.main {
+	max-width: 950px;
+	padding: 19px 29px 29px;
+	margin: 0 auto 20px;
+	background-color: #fff;
+	border: 1px solid #e5e5e5;
+	-webkit-border-radius: 5px;
+	-moz-border-radius: 5px;
+	border-radius: 5px;
+	-webkit-box-shadow: 0 1px 2px rgba(0,0,0,.05);
+	-moz-box-shadow: 0 1px 2px rgba(0,0,0,.05);
+	box-shadow: 0 1px 2px rgba(0,0,0,.05);
+}
+
+small {
+	color: #777;
+}
+
+.l {
+	float: left;
+}
+
+.r {
+	float: right;
+}
+
+.mr2 {
+	margin-right: 2px;
+}
+
+.mr3 {
+	margin-right: 3px;
+}
+
+.mr4 {
+	margin-right: 4px;
+}
+
+.mr6 {
+	margin-right: 6px;
+}
+
+.mr8 {
+	margin-right: 8px;
+}
+
+.ml2 {
+	margin-left: 2px;
+}
+
+.ml3 {
+	margin-left: 3px;
+}
+
+.ml4 {
+	margin-left: 4px;
+}
+
+.ml6 {
+	margin-left: 6px;
+}
+
+.ml8 {
+	margin-left: 8px;
+}
+
+.label-site {
+	font-size: 14px;
+	vertical-align: middle;
+	margin-right: 6px;
+}
+.icon-site {
+	vertical-align: text-top;
+	margin-right: 2px;
+	width: 16px;
+	height: 16px;
+}
+.breadcrumb > li + li::before {
+	content: "| ";
+}
+.text {
+	width: 100%;
+	height: 150px;
+}
+.btn-code {
+	padding: 6px 16px;
+}
+.form-group {
+	margin: 10px;
+}
+.replace {
+	width: 40px;
+	padding: 2px;
+	height: 20px;
+	display: inline;
+	font-size: 12px;
+	text-align: center;
+}
+.row {
+	margin-top: 4px;
+}
+.code-keyword {
+	color: #069;
+	font-weight: bold;
+}
+.code-comment {
+	color: #008200;
+}
+.code-vars {
+	color: #D00;
+}
+.code-string {
+	color: #00F;
+}
+</style>
+<script type="text/javascript">
+
+</script>
+</head>
+<body>
+<div class="container">
+	<div class="modal fade" id="modalCode" tabindex="-1" role="dialog" aria-labelledby="modalCodeLabel">
+		<div class="modal-dialog" style="width: 1160px;" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+					<h4 class="modal-title" id="modalCodeLabel">各编程语言中 Base64 编码解码的方法 <small>(其中 <span class="code-keyword">String</span> str 表示原文本，<span class="code-keyword">String</span> base64 表示编码结果)</small></h4>
+				</div>
+				<div class="modal-body" id="ModalBody">
+					<table class="table table-striped table-hover">
+						<thead>
+							<tr>
+								<th>语言</th>
+								<th>Base64 编码</th>
+								<th>Base64 解码</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Java</td>
+								<td>base64 = <span class="code-keyword">new</span> BASE64Encoder().encode(str.getBytes());</td>
+								<td>str = <span class="code-keyword">new</span> String(<span class="code-keyword">new</span> BASE64Decoder().decodeBuffer(base64));</td>
+							</tr>
+							<tr>
+								<td>JavaScript</td>
+								<td>
+									base64 = btoa(str); <span class="code-comment">// IE 10- 需要引入 base64.js 且不支持汉字</span>
+									<br>
+									或
+									<br>
+									<span class="code-keyword">var</span> s = CryptoJS.enc.Utf8.parse(str);<br>base64 = CryptoJS.enc.Base64.stringify(s); <span class="code-comment">// 需要引入 CryptoJS</span>
+								</td>
+								<td>
+									str = atob(base64); <span class="code-comment">// IE 10- 需要引入 base64.js 且不支持汉字</span>
+									<br>
+									或
+									<br>
+									<span class="code-keyword">var</span> s = CryptoJS.enc.Base64.parse(base64);<br>
+									str = s.toString(CryptoJS.enc.Utf8); <span class="code-comment">// 需要引入 CryptoJS</span>
+								</td>
+							</tr>
+							<tr>
+								<td>PHP</td>
+								<td><span class="code-vars">$base64</span> = base64_encode(<span class="code-vars">$str</span>);</td>
+								<td><span class="code-vars">$str</span> = base64_decode(<span class="code-vars">$base64</span>);</td>
+							</tr>
+							<tr>
+								<td>C#/.NET</td>
+								<td><span class="code-keyword">byte</span>[] bytes = System.Text.Encoding.UTF8.GetBytes(str);<br>base64 = System.Convert.ToBase64String(bytes);</td>
+								<td><span class="code-keyword">byte</span>[] bytes = System.Convert.FromBase64String(base64);<br>str = System.Text.Encoding.UTF8.GetString(bytes);</td>
+							</tr>
+							<tr>
+								<td>Python</td>
+								<td><span class="code-keyword">import</span> base64<br>base64 = base64.b64encode(str)</td>
+								<td><span class="code-keyword">import</span> base64<br>str = base64.b64decode(base64)</td>
+							</tr>
+							<tr>
+								<td>Perl</td>
+								<td><span class="code-keyword">use</span> MIME::Base64;<br><span class="code-vars">$base64</span> = encode_base64(<span class="code-vars">$str</span>);</td>
+								<td><span class="code-keyword">use</span> MIME::Base64;<br><span class="code-vars">$str</span> = decode_base64(<span class="code-vars">$base64</span>);</td>
+							</tr>
+							<tr>
+								<td>Golang</td>
+								<td><span class="code-keyword">import</span> b64 <span class="code-string">"encoding/base64"</span><br>...<br>base64 := b64.StdEncoding.EncodeToString([]byte(str))</td>
+								<td><span class="code-keyword">import</span> b64 <span class="code-string">"encoding/base64"</span><br>...<br>str := b64.StdEncoding.DecodeString(base64)</td>
+							</tr>
+							<tr>
+								<td>Ruby</td>
+								<td>require <span class="code-string">"base64"</span><br>base64 = Base64.encode64(str)</td>
+								<td>require <span class="code-string">"base64"</span><br>str = Base64.decode64(base64)</td>
+							</tr>
+							<tr>
+								<td>MySQL/MariaDB</td>
+								<td>SELECT TO_BASE64(str); <span class="code-comment">// 参数也可以是一个字段</span></td>
+								<td>SELECT FROM_BASE64(base64); <span class="code-comment">// 参数也可以是一个字段</span></td>
+							</tr>
+							<tr>
+								<td>PostgreSQL</td>
+								<td>SELECT encode(str, <span class="code-string">'base64'</span>);</td>
+								<td>SELECT decode(base64, <span class="code-string">'base64'</span>);</td>
+							</tr>
+							<tr>
+								<td>Linux Shell <small>(以 test 为例)</small></td>
+								<td>$ echo test | base64 <span class="code-comment">// dGVzdAo=</span></td>
+								<td>$ echo dGVzdAo= | base64 -d <span class="code-comment">// test</span></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				<div class="modal-footer">
+					<span class="l">其它语言请上网搜索实现方法。（有遗漏请联系我）</span>
+					<button type="button" class="btn btn-primary" data-dismiss="modal">确定</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="main">
+		<h3></span>Base64 在线编码解码<small class="ml6">(最好用的 Base64 在线工具)</small></h3>
+		<ol class="breadcrumb">
+			<li class="active">Base64</li>
+			<li><a title="URL 在线编码解码工具" href="base64_default.html#" onclick="alert('暂未开通~');">URLEncode</a></li>
+			<li><a title="MD5、MD4、SHA* 等 Hash 在线计算工具" href="base64_default.html#" onclick="alert('暂未开通~');">MD5</a></li>
+			<li><a title="Unix 时间戳转换工具" href="base64_default.html#" onclick="alert('暂未开通~');">TimeStamp</a></li>
+		</ol>
+		<h5>请输入要进行 Base64 编码或解码的字符</h5>
+		<textarea name="text" id="text" class="form-control text" cols="80" rows="6" placeholder=""></textarea>
+		<div style="margin:10px 0;">
+			<button id="encode" class="btn btn-primary btn-code">编码 (Encode)</button>
+			<button id="decode" class="btn btn-default btn-code">解码 (Decode)</button>
+			<button id="exchange" class="btn btn-default">↕ 交换</button>
+			<span style="color:#888; margin-left: 5px;">(<span id="hkf">编码</span>快捷键：<small id="kbd"><kbd>Ctrl</kbd> + <kbd>Enter</kbd></small> )</span>
+		</div>
+		<h5>Base64 编码或解码的结果：<span class="r"><label><input type="checkbox" id="as" style="vertical-align: bottom;"> 编/解码后自动全选</label></span></h5>
+		<textarea name="result" id="result" class="form-control text" cols="80" rows="6" placeholder=""></textarea>
+		<div id="alert" style="margin:10px 0;" class="alert alert-info">请在上方第一个文本框中输入要编码/解码的字符。</div>
+		<div class="well">也可以选择图片文件来获取它的 Base64 编码的 DataURI 形式：<input style="display: inline;" id="image_input" accept="image/*" type="file" ></div>
+		<hr>
+		<div style="text-align: right;">
+			<div class="l" style="color:#888; line-height:34px;">
+				Code by <a id="me" tabindex="0" role="button" data-html="true" data-trigger="click" data-container="body" data-toggle="popover" data-placement="top" data-content="有什么意见建议想法，请联系我！<br><small><a href='https://weibo.com/n/二环同学' target='_blank'><img src='https://weibo.com/favicon.ico' class='icon-site mr2'>二环同学</a> <a href='https://wpa.qq.com/msgrd?v=3&uin=541231936' target='_blank'><img src='https://im.qq.com/favicon.ico' class='icon-site mr2'>541231936</a> <img src='https://weixin.qq.com/zh_CN/htmledition/images/favicon1fbcbe.ico' class='icon-site mr2'>541231936<br>Email: <a href='mailto:acircle@dogecloud.com'>acircle at dogecloud.com</a></small>">@二环同学</a>
+				| 
+				<a target="_blank" href="https://www.dogecloud.com">视频点播、对象存储、国内 CDN 产品年中钜惠，1 TB 流量包仅需 ￥61.8</a>
+				<div style="display:none">
+					<script>
+						var _hmt = _hmt || [];
+						(function() {
+						var hm = document.createElement("script");
+						hm.src = "https://hm.baidu.com/hm.js?17df78a2c47605344f3338c54523c07e";
+						var s = document.getElementsByTagName("script")[0]; 
+						s.parentNode.insertBefore(hm, s);
+						})();
+					</script>
+				</div>
+			</div>
+			<div data-toggle="buttons">
+				<label class="btn btn-link" style="padding-right:4px;" data-toggle="modal" data-target="#modalCode">
+					<span>各语言中的实现方法</span>
+				</label>
+				<!--label class="btn btn-link" style="padding-left:4px; padding-right:4px;">
+					<span>专用链转换</span>
+				</label -->
+				<label class="btn btn-info">
+					<input type="checkbox" id="config_checkbox"> 高级设置
+				</label>
+			</div>
+		</div>
+		<div id="config" style="display:none;" >
+			<h4>设置<small class="ml6">(我们使用 Cookie 来记住您的高级设置，这些 Cookie 不会被记录或用于追踪)</small></h4>
+			<div class="row">
+				<div class="form-group">
+					<label class="col-sm-2 control-label">
+						字符集编码
+					</label>
+					<div class="btn-group col-sm-4" data-toggle="buttons">
+						<label class="btn btn-default">
+							<input type="radio" class="encoding" name="encoding" value="utf8" id="encoding_utf8" autocomplete="off"> UTF-8
+						</label>
+						<label class="btn btn-default">
+							<input type="radio" class="encoding" name="encoding" value="gb2312" id="encoding_gb2312" autocomplete="off"> GB2312
+						</label>
+					</div>
+					<div class="col-sm-6">
+						设置字符集编码。GB2312 无法使用 16 进制输出功能。
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="form-group">
+					<label class="col-sm-2 control-label">
+						自动编码/解码
+					</label>
+					<div class="btn-group col-sm-4" data-toggle="buttons">
+						<label class="btn btn-default">
+							<input type="radio" class="auto" name="auto" value="off" id="auto_off" autocomplete="off"> 关闭
+						</label>
+						<label class="btn btn-default">
+							<input type="radio" class="auto" name="auto" value="encode" id="auto_encode" autocomplete="off"> 自动编码
+						</label>
+						<label class="btn btn-default">
+							<input type="radio" class="auto" name="auto" value="decode" id="auto_decode" autocomplete="off"> 自动解码
+						</label>
+					</div>
+					<div class="col-sm-6">
+						设置当原文本框内容改变后是否自动进行编码或者解码。
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="form-group">
+					<label class="col-sm-2 control-label">
+						编解码快捷键
+					</label>
+					<div class="btn-group col-sm-4" data-toggle="buttons">
+						<label class="btn btn-default" style="height: 38px;">
+							<input type="radio" class="hotkey" name="hotkey" value="ce" id="hotkey_ce" autocomplete="off"> <small><kbd>Ctrl</kbd> + <kbd>Enter</kbd></small>
+						</label>
+						<label class="btn btn-default" style="height: 38px;">
+							<input type="radio" class="hotkey" name="hotkey" value="e" id="hotkey_e" autocomplete="off"> <small><kbd>Enter</kbd></small>
+						</label>
+					</div>
+					<div class="col-sm-6">
+						设置在原文本框中，编码/解码的快捷键。如果设置为其中一个，则另一个就是换行的热键。
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="form-group">
+					<label class="col-sm-2 control-label">
+						按下快捷键后
+					</label>
+					<div class="btn-group col-sm-4" data-toggle="buttons">
+						<label class="btn btn-default">
+							<input type="radio" class="hotkey_for" name="hotkey_for" value="encode" id="hotkey_for_encode" autocomplete="off"> 编码
+						</label>
+						<label class="btn btn-default">
+							<input type="radio" class="hotkey_for" name="hotkey_for" value="decode" id="hotkey_for_decode" autocomplete="off"> 解码
+						</label>
+					</div>
+					<div class="col-sm-6">
+						按下上述快捷键之后执行的操作。
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="form-group">
+					<label class="col-sm-2 control-label">
+						解码输出格式
+					</label>
+					<div class="col-sm-4">
+					<div class="btn-group" data-toggle="buttons">
+						<label class="btn btn-default">
+							<input type="radio" class="out_de" name="out_de" value="text" id="out_de_text" autocomplete="off"> 文本
+						</label>
+						<label class="btn btn-default" data-toggle="tooltip" data-placement="top" title="Hex形式，可以理解为<br>URL编码后去掉了“%”">
+							<input type="radio" class="out_de" name="out_de" value="h" id="out_de_h" autocomplete="off"> H
+						</label>
+						<label class="btn btn-default" data-toggle="tooltip" data-placement="top" title="\x Hex形式，可以理解为<br>URL编码后“%”换成“\x”">
+							<input type="radio" class="out_de" name="out_de" value="x" id="out_de_x" autocomplete="off"> \x
+						</label>
+						<label class="btn btn-default" data-toggle="tooltip" data-placement="top" title="\u Hex形式<br><b>特别提醒：<br>会将 UTF-8 转换为 UTF-16 模式</b>">
+							<input type="radio" class="out_de" name="out_de" value="u" id="out_de_u" autocomplete="off"> \u
+						</label>
+						<label class="btn btn-default" data-toggle="tooltip" data-placement="top" title="&#数字; 形式<br><b>特别提醒：<br>会将 UTF-8 转换为 UTF-16 模式</b>">
+							<input type="radio" class="out_de" name="out_de" value="d" id="out_de_d" autocomplete="off"> &#
+						</label>
+						<label class="btn btn-default" data-toggle="tooltip" data-placement="top" title="类似于字节流的形式">
+							<input type="radio" class="out_de" name="out_de" value="b" id="out_de_b" autocomplete="off"> {...}
+						</label>
+					</div>
+						<div class="checkbox">
+							<label>
+								<input type="checkbox" class="out_de_blank" id="out_de_blank" checked> 非纯文本输出时，加上空格
+							</label>
+						</div>
+					</div>
+					
+					<div class="col-sm-6">
+						设置 Base64 解码后输出的形式。<br><b>如果设置字符集编码为 GB2312， 则此设置无效。</b><br>加空格：<code>\u5728\u4F7F\u7528</code> → <code>\u5728 \u4F7F \u7528</code>
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="form-group">
+					<label class="col-sm-2 control-label">
+						编码输入格式
+					</label>
+					<div class="col-sm-4">
+					<div class="btn-group" data-toggle="buttons">
+						<label class="btn btn-default">
+							<input type="radio" class="in_en" name="in_en" value="text" id="in_en_text" autocomplete="off"> 文本
+						</label>
+						<label class="btn btn-default" data-toggle="tooltip" data-placement="top" title="Hex形式，可以理解为<br>URL编码后去掉了“%”">
+							<input type="radio" class="in_en" name="in_en" value="h" id="in_en_h" autocomplete="off"> H
+						</label>
+						<label class="btn btn-default" data-toggle="tooltip" data-placement="top" title="类似于字节流的形式">
+							<input type="radio" class="in_en" name="in_en" value="b" id="in_en_b" autocomplete="off"> {...}
+						</label>
+					</div>
+					</div>
+					
+					<div class="col-sm-6">
+						设置 Base64 编码输入的的形式。<br><b>如果设置字符集编码为 GB2312， 则此设置无效。</b>
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="form-group">
+					<label class="col-sm-2 control-label">
+						编码输出格式
+					</label>
+					<div class="btn-group col-sm-4" data-toggle="buttons">
+						<label class="btn btn-default">
+							<input type="radio" class="out_en" name="out_en" value="text" id="out_en_text" autocomplete="off"> 纯文本
+						</label>
+						<label class="btn btn-default">
+							<input type="radio" class="out_en" name="out_en" value="urlencode" id="out_en_urlencode" autocomplete="off"> URL 编码
+						</label>
+					</div>
+					<div class="col-sm-6">
+						设置 Base64 编码后输出的格式，其中 URL 编码使用 encodeURIComponent 函数完成。
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="form-group">
+					<label class="col-sm-2 control-label">
+						编码符号替换
+					</label>
+					<div class="col-sm-4" style="padding-right:0;">
+						<div class="checkbox">
+							<label>
+								<input type="checkbox" class="sym_rep" id="sym_rep_plus"> 将 <code>+</code> 替换为 <input type="text" class="form-control replace sym_rep_text" id="sym_rep_plus_text" value="-">
+							</label>
+						</div>
+						<div class="checkbox">
+							<label>
+								<input type="checkbox" class="sym_rep" id="sym_rep_slash"> 将 <code>/</code> 替换为 <input type="text" class="form-control replace sym_rep_text" id="sym_rep_slash_text" value="_">
+							</label>
+						</div>
+						<div class="checkbox">
+							<label>
+								<input type="checkbox" class="sym_rep" id="sym_rep_equal"> 将 <code>=</code> 替换为 <input type="text" class="form-control replace sym_rep_text" id="sym_rep_equal_text">
+							</label>
+						</div>
+						<div class="checkbox">
+							<label>
+								<input type="checkbox" class="sym_rep" id="sym_rep_both" checked> 解码时也替换
+							</label>
+						</div>
+					</div>
+					<div class="col-sm-6">
+						将编码结果中的特殊符号( +、/、=)替换为别的内容。<br>解码时也替换：在解码之前，先对待解码的文本逆向进行上述勾选的替换规则一遍。
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+<script type="text/javascript">
+	$("#text").keypress(function(e){
+		if((e.ctrlKey != (hotkey == "e")) && (e.keyCode == 10 || e.keyCode == 13)){
+			$("#" + ((hotkey_for == "decode") ? hotkey_for : "encode")).click();
+			return false
+		}else if(e.ctrlKey && (e.keyCode == 10 || e.keyCode == 13)){
+			$("#text").insertContent("\n");
+			return false
+		}
+		return e
+	});
+
+	config = getCookie("config") || "off";
+	encoding = getCookie("encoding") || "utf8";
+	out_en = getCookie("out_en") || "text";
+	out_de = getCookie("out_de") || "text";
+	in_en = getCookie("in_en") || "text";
+	out_de_blank = getCookie("out_de_blank") != "false";
+	auto = getCookie("auto") || "off";
+	as = getCookie("as") == "true";
+	hotkey_for = getCookie("hotkey_for") || "encode";
+	hotkey = getCookie("hotkey") || "ce";
+	sym_rep = (getCookie("sym_rep") || "false,false,false,true").split(',');
+
+	if(config == "on"){ $("#config_checkbox").parent('label').addClass('active'); $("#config").show(); }
+	$("#encoding_" + encoding).parent('label').addClass('active');
+	$("#out_en_" + out_en).parent('label').addClass('active');
+	$("#out_de_" + out_de).parent('label').addClass('active');
+	$("#in_en_" + in_en).parent('label').addClass('active');
+	$("#auto_" + auto).parent('label').addClass('active');
+	$("#hotkey_" + hotkey).parent('label').addClass('active');
+	$("#hotkey_for_" + hotkey_for).parent('label').addClass('active');
+	$("#sym_rep_plus")[0].checked = (sym_rep[0] == 'true');
+	$("#sym_rep_slash")[0].checked = (sym_rep[1] == 'true');
+	$("#sym_rep_equal")[0].checked = (sym_rep[2] == 'true');
+	$("#sym_rep_both")[0].checked = (sym_rep[3] == 'true');
+	$("#out_de_blank")[0].checked = out_de_blank;
+	$("#as")[0].checked = as;
+	$("#sym_rep_plus_text").val(getCookie('sym_rep_plus_text') || "-");
+	$("#sym_rep_slash_text").val(getCookie('sym_rep_slash_text') || "_");
+	$("#sym_rep_equal_text").val(getCookie('sym_rep_equal_text') || "");
+
+	$("#config_checkbox").change(function(e){
+		$("#config_checkbox")[0].checked ? $("#config").show() : $("#config").hide();
+		config = $("#config_checkbox")[0].checked ? "on" : "off";
+		setCookie('config', config);
+	});
+
+	$(".encoding").change(function(e){
+		encoding = $(".encoding:checked").val();
+		setCookie('encoding', encoding);
+	});
+
+	$(".out_en").change(function(e){
+		out_en = $(".out_en:checked").val();
+		setCookie('out_en', out_en);
+	});
+
+	$(".out_de").change(function(e){
+		out_de = $(".out_de:checked").val();
+		setCookie('out_de', out_de);
+	});
+
+	$(".in_en").change(function(e){
+		in_en = $(".in_en:checked").val();
+		setCookie('in_en', in_en);
+	});
+
+	$(".auto").change(function(e){
+		auto = $(".auto:checked").val();
+		setCookie('auto', auto);
+	});
+
+	$(".hotkey").change(function(e){
+		hotkey = $(".hotkey:checked").val();
+		setCookie('hotkey', hotkey);
+		if(hotkey == "ce"){ $("#kbd").html('<kbd>Ctrl</kbd> + <kbd>Enter</kbd>'); }
+		if(hotkey == "e"){ $("#kbd").html('<kbd>Enter</kbd>'); }
+	});
+	if(hotkey == "ce"){ $("#kbd").html('<kbd>Ctrl</kbd> + <kbd>Enter</kbd>'); }
+	if(hotkey == "e"){ $("#kbd").html('<kbd>Enter</kbd>'); }
+
+	$(".hotkey_for").change(function(e){
+		hotkey_for = $(".hotkey_for:checked").val();
+		setCookie('hotkey_for', hotkey_for);
+		if(hotkey_for == "encode"){ $("#hkf").html('编码'); }
+		if(hotkey_for == "decode"){ $("#hkf").html('解码'); }
+	});
+	if(hotkey_for == "encode"){ $("#hkf").html('编码'); }
+	if(hotkey_for == "decode"){ $("#hkf").html('解码'); }
+
+	$(".sym_rep").change(function(e){
+		setCookie('sym_rep', $("#sym_rep_plus")[0].checked + ',' + $("#sym_rep_slash")[0].checked + ',' + $("#sym_rep_equal")[0].checked + ',' + $("#sym_rep_both")[0].checked);
+	});
+
+	$(".out_de_blank").change(function(e){
+		out_de_blank = $("#out_de_blank")[0].checked;
+		setCookie('out_de_blank', out_de_blank);
+	});
+
+	$("#as").change(function(e){
+		as = $("#as")[0].checked;
+		setCookie('as', as);
+	});
+
+	$(".sym_rep_text").change(function(e){
+		setCookie(e.target.id, e.target.value);
+	});
+
+	function makeFragment(e, code){
+		$(e).prop('outerHTML', '<input id="select" type="text" onfocus="$(this).select();" value="' + 'https://base64.us/#' + code + '">');
+		$("#select").focus();
+		return false;
+	}
+
+	$("#encode").click(function(e){
+		var ori = $("#text").val();
+		if(encoding == "gb2312"){
+			var res = base64_encode_gb2312(ori);
+			var olength = (res.length / 4 * 3 - 2 + (res.substr(-1,1)=="="?0:1) + (res.substr(-2,1)=="="?0:1));
+		}else{
+			if(in_en != "text"){
+				var arr = [];
+				if(in_en == "h"){
+					ori = ori.replace(/ /, "");
+					var len = 0; while(len < ori.length){ arr.push(parseInt(ori.substr(len,2),16)); len+=2; }
+				}else if(in_en == "b"){
+					ori = ori.replace(/ /, "").replace(/\{/, "").replace(/\}/, "");
+					tarr = ori.split(','); var len = 0; while(len < tarr.length){ arr.push(parseInt(tarr[len])); len++; }
+				}
+				var res = base64_encode(arr, true);
+				var olength = arr.length;
+			}else{
+				var res = base64_encode(ori, false);
+				var olength = (res.length / 4 * 3 - 2 + (res.substr(-1,1)=="="?0:1) + (res.substr(-2,1)=="="?0:1));
+			}
+		}
+		
+		var trans = {}; var is_trans = false;
+		if($("#sym_rep_plus")[0].checked){ trans['+'] = $("#sym_rep_plus_text").val(); is_trans = true; }
+		if($("#sym_rep_slash")[0].checked){ trans['/'] = $("#sym_rep_slash_text").val(); is_trans = true; }
+		if($("#sym_rep_equal")[0].checked){ trans['='] = $("#sym_rep_equal_text").val(); is_trans = true; }
+
+		if(is_trans){ res = strtr(res, trans); }
+
+		if(out_en == "urlencode"){ res = encodeURIComponent(res); }
+		$("#result").val(res);
+		if(as){ $("#result")[0].focus(); $("#result")[0].select(); }
+		$("#alert").attr('class', 'alert alert-success').html('编码完毕，原文本字节数：' + olength + '，编码后字节数：' + res.length + '。');
+		$("#alert").append(' <a style="cursor: pointer;" id="copy_result" data-clipboard-target="#result" data-toggle="tooltip" data-placement="bottom" title="复制成功" data-trigger="manual">复制结果</a>');
+		new ClipboardJS('#copy_result').on('success', function(e) { $('#copy_result').tooltip('show'); setTimeout(function(){ $('#copy_result').tooltip('hide'); }, 1000); } );
+		if(ori.length < 1000){
+			$("#alert").append(' <a style="cursor: pointer;" onclick="return makeFragment(this, \'e=' + encodeURIComponent(ori) + '\');">生成固定链接</a>');
+		}
+	});
+
+	$("#decode").click(function(e){
+		var ori = decodeURIComponent($("#text").val());
+		var trans = {}; var is_trans = false;
+		var delength = 0;
+		if($("#sym_rep_both")[0].checked){
+			if($("#sym_rep_plus")[0].checked && $("#sym_rep_plus_text").val()){ trans[$("#sym_rep_plus_text").val()] = "+"; is_trans = true; }
+			if($("#sym_rep_slash")[0].checked && $("#sym_rep_slash_text").val()){ trans[$("#sym_rep_slash_text").val()] = "+"; is_trans = true; }
+			if($("#sym_rep_equal")[0].checked && $("#sym_rep_equal_text").val()){ trans[$("#sym_rep_equal_text").val()] = "+"; is_trans = true; }
+			if(is_trans){ ori = strtr(ori, trans); }
+		}
+		ori = ori.replace(/\\r\\n/g, "\\n");
+		ori = ori.replace(/\\n/g, "\n");
+		if(encoding == "gb2312"){
+			var res = base64_decode_gb2312(ori);
+		}else{
+			if(out_de != "text"){
+				var res = base64_decode(ori, true, out_de);
+				var opt = "";
+				delength = res.length;
+				if(out_de == "h"){
+					for(i in res){ opt+= pad(res[i].toString(16).toUpperCase(),2) + (out_de_blank?" ":""); } res = opt;
+				}else if(out_de == "x"){
+					for(i in res){ opt+= "\\x" + pad(res[i].toString(16).toUpperCase(),2) + (out_de_blank?" ":""); } res = opt;
+				}else if(out_de == "u"){
+					for(i in res){ opt+= "\\u" + pad(res[i].toString(16).toUpperCase(),4) + (out_de_blank?" ":""); } res = opt;
+				}else if(out_de == "d"){
+					for(i in res){ opt+= "&#" + res[i] + ";" + (out_de_blank?" ":""); } res = opt;
+				}else if(out_de == "b"){
+					res = "{" + res.join(',') + "}";
+				}
+			}else{
+				var res = base64_decode(ori, false, 'text');
+			}
+		}
+		$("#result").val(res);
+		if(as){ $("#result")[0].focus(); $("#result")[0].select(); }
+		$("#alert").attr('class', 'alert alert-success').html('解码完毕。');
+		if(delength > 0){ $("#alert").append('解码后字符数：' + delength + ' 。'); }
+		$("#alert").append(' <a style="cursor: pointer;" id="copy_result" data-clipboard-target="#result" data-toggle="tooltip" data-placement="bottom" title="复制成功" data-trigger="manual">复制结果</a>');
+		new ClipboardJS('#copy_result').on('success', function(e) { $('#copy_result').tooltip('show'); setTimeout(function(){ $('#copy_result').tooltip('hide'); }, 1000); } );
+		if(ori.length < 1000){
+			$("#alert").append(' <a style="cursor: pointer;" onclick="return makeFragment(this, \'d=' + encodeURIComponent(ori) + '\');">生成固定链接</a>');
+		}
+	});
+
+	$("#exchange").click(function(e){
+		var t = $("#text").val();
+		$("#text").val($("#result").val());
+		$("#result").val(t);
+	});
+
+	$('#text').bind('input propertychange', function() {
+		if(auto != "off"){ $("#" + auto).click(); }
+	});
+
+	$('#image_input').change(function(e){
+		if(typeof(FileReader) === 'undefined'){
+			alert('你的浏览器不支持 FileReader ，请更换。');
+		}else{
+			var FR = new FileReader();
+			FR.readAsDataURL(e.target.files[0]);
+			FR.onload = function(e){
+				$("#result").val(this.result);
+				if(as){ $("#result")[0].focus(); $("#result")[0].select(); }
+				$("#alert").attr('class', 'alert alert-success').html('读取完毕。');
+			}
+		}
+	});
+
+	var ex = location.hash.replace(/#/,'').split("=");
+	if(ex.length >= 2){
+		if(ex[0] == "e"){
+			$("#text").val(decodeURIComponent(ex[1]));
+			$("#encode").click();
+		}else if(ex[0] == "d"){
+			$("#text").val(decodeURIComponent(ex[1]));
+			$("#decode").click();
+		}
+	}
+	
+	$(function(){ $('[data-toggle="tooltip"]').tooltip({html: true, container: 'body'}); });
+	$("#me").popover();
+
+</script>
+</body>
+</html>
