@@ -12,6 +12,8 @@
 [【工具箱3】](https://www.sojson.com/)
 [【纪念日】](https://ligusx.github.io/love/)
 
+https://ck.ligus.tk/js/instantpage.user.js
+
     ௹m0xd1IxbFdXWGxTYmtwUFZtMW9WMW
     lxVU2xOalZsWjBaRWhrVm1KR2NIbFdW
     iM1JQVkcxS1IxTnFRbHBOUmxwTVdWUk
