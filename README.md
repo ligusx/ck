@@ -5,6 +5,7 @@
 [【base64加解密】](https://ck.ligus.tk/jm/)
 [【计算器】](https://cal.supfree.net/)
 [【影视解析】](https://ck.ligus.tk/jx)
+[【影视解析2】](https://ck.ligus.tk/jx2)
 [【百度网盘直链解析】](http://pan.naifei.cc/new/?ucbug)
 [【天翼网盘解析】](https://189.ly93.cc/)
 [【油猴脚本-网页加速】](https://ck.ligus.tk/js/instantpage.user.js)
