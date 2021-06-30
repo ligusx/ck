@@ -1,3 +1,5 @@
+# 告知页
+用于存放和远程拉取一些文件，请不要拉取或者复刻本项目，这对您没用。祝您天天开心！
 [我的博客](https://blog.ligus.workers.dev/)
 [【base64加解密】](https://ck.ligus.tk/jm/)
 [【计算器】](https://cal.supfree.net/)
