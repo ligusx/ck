@@ -4,6 +4,7 @@
 [【影视解析】](https://ck.ligus.tk/jx/)
 [【油猴脚本-网页加速】](https://ck.ligus.tk/油猴脚本/instantpage.user.js)
 [【百度网盘解析】](http://pan.naifei.cc/new)
+[【天翼网盘解析】](https://189.ly93.cc/)
 [【工具箱】](https://tool.lu/)
 [【工具箱2】](https://www.dute.org/)
 [【工具箱3】](https://www.sojson.com/)
