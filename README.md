@@ -20,3 +20,7 @@
     gM1JQVkcxS1IxTnFRbHBOUmxwTVdWUk
     uJlRkpXU25KWGJGcE9WakpvTWxaclVr
     sZFpWazVJVkdwYWFHVnFRVGs9
+
+
+
+    https://sub.lryu4.com/sub?target=clash&new_name=true&url=https%3A%2F%2Fraw.githubusercontent.com%2Ffreefq%2Ffree%2Fmaster%2Fv2&insert=false
