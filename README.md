@@ -11,7 +11,7 @@
 [【云笔记】](https://tibiji.com/)
 [【纪念日】](https://ligusx.github.io/love/)
 [【动态行为分析软件】](https://ck.ligus.tk/rar/动态行为分析.rar)
-[【win激活】](https://ck.ligus.tk/rar/激活.rar)
+[【win激活】](https://ck.ligus.tk/rar/激活工具.rar)
 [【apk下载器】](https://apk.support/zh_cn/apk-downloader)
 [【音乐下载】](https://www.sixyin.com/wuyin/index.php)
 [【音乐解锁】](https://ck.ligus.tk/yyjs)
