@@ -2,7 +2,7 @@
 用于存放和远程拉取一些文件，请不要拉取或者复刻本项目，这对您没用。祝您天天开心！  
 [【影视解析】](https://ck.ligus.tk/jx/)
 [【油猴脚本-网页加速】](https://ck.ligus.tk/油猴脚本/instantpage.user.js)
- [【软件库】](https://ck.ligus.tk/exe) 
+ [【软件库】](https://ck.ligus.tk/exe)   
 [【百度网盘解析】](http://pan.naifei.cc/new/)
 [【天翼网盘解析】](https://189.ly93.cc/)
 [【视频解析下载】](https://youtube.iiilab.com/)  
