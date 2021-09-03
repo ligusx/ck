@@ -1,7 +1,8 @@
 #  仓库
 用于存放和远程拉取一些文件，请不要拉取或者复刻本项目，这对您没用。祝您天天开心！  
 [【影视解析】](https://ck.ligus.tk/jx/)
-[【油猴脚本-网页加速】](https://ck.ligus.tk/油猴脚本/instantpage.user.js)  
+[【油猴脚本-网页加速】](https://ck.ligus.tk/油猴脚本/instantpage.user.js)
+ [【软件库】](https://ck.ligus.tk/exe) 
 [【百度网盘解析】](http://pan.naifei.cc/new/)
 [【天翼网盘解析】](https://189.ly93.cc/)
 [【视频解析下载】](https://youtube.iiilab.com/)  
@@ -10,10 +11,10 @@
 [【工具箱3】](https://www.sojson.com/)  
 [【云笔记】](https://tibiji.com/)
 [【纪念日】](https://ligusx.github.io/love/)
-[【动态行为分析软件】](https://ck.ligus.tk/rar/动态行为分析.rar)
+[【动态行为分析软件】](https://ck.ligus.tk/rar/动态行为分析.rar)   
 [【win激活】](https://ck.ligus.tk/rar/激活工具.rar)
 [【apk下载器】](https://m.apkpure.com/apk-downloader)
-[【音乐下载】](https://www.sixyin.com/wuyin/index.php)
+[【音乐下载】](https://www.sixyin.com/wuyin/index.php)   
 [【音乐解锁】](https://ck.ligus.tk/yyjs)
 
 
