@@ -13,3 +13,4 @@
 [【向日葵企业版客户端】](https://ck.ligus.tk/exe/向日葵企业版客户端.exe)
 [【向日葵企业版控制端】](https://ck.ligus.tk/exe/向日葵企业版控制端.exe)
 [【迅雷】](https://ck.ligus.tk/exe/迅雷.exe)
+[【系统优化工具】](https://ck.ligus.tk/exe/系统优化工具.exe)
