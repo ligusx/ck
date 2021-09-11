@@ -268,9 +268,9 @@ module.exports = (function () {
     try{
         var v = JSON.parse(data);
         if(v.count == 5){
-            v.count = 99999;
-            v.type = 'license_vip';
-            data = Buffer.from(JSON.stringify(v));
+           v.count = 99999;
+           v.type = 'license_vip';
+           data = Buffer.from(JSON.stringify(v));
         }
     }catch(e){
     }
