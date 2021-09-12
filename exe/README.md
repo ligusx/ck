@@ -4,7 +4,7 @@
 [【banzip压缩】](https://ck.ligus.top/exe/zip.exe)
 [【阿里云盘】](https://ck.ligus.top/exe/阿里云盘.exe)
 [【电报】](https://ck.ligus.top/exe/电报.exe)
-[【驱动】](https://ck.ligus.top/exe/驱动exe)
+[【驱动】](https://ck.ligus.top/exe/驱动.exe)
 [【文本编辑器】](https://ck.ligus.top/exe/文本编辑器.exe)
 [【我的世界解锁win10版】](https://ck.ligus.top/exe/我的世界解锁win10版.exe)
 [【我的世界HMCL启动器】](https://ck.ligus.top/exe/我的世界启动器.exe)
