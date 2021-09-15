@@ -16,3 +16,4 @@
 [【系统优化工具】](https://ck.ligus.top/exe/系统优化工具.exe)
 [【谷歌浏览器】](https://ck.ligus.top/exe/谷歌浏览器.exe)
 [【文件占比分析】](https://ck.ligus.top/exe/文件占比分析.exe)
+[【DiskGenius】](https://ck.ligus.top/zip/DiskGenius.zip)
