@@ -3,5 +3,5 @@
     Util_Functions_ID=Util_Functions.sh
     Util_Functions_MD5=27d8bea2e557810265c71e596ff519ca
     Cloud_ID=Cloud_Page.zip
-    Cloud_MD5=bca0976d44740b807a1fd75108670aa1
+    Cloud_MD5=0975f95a6b10fd1c5d7cd4dc9c94e5a8
     Cloud_Version=2021060418
