@@ -21,3 +21,4 @@
 [【动态行为分析软件】](https://ck.ligus.top/rar/动态行为分析.rar)
 [【WinHex】](https://ck.ligus.top/exe/WinHex.exe)
 [【百田游戏】](https://ck.ligus.top/exe/百田游戏.exe)
+[【Windows超级管理器】](https://ck.ligus.top/exe/Windows超级管理器.exe)
