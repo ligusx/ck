@@ -22,3 +22,4 @@
 [【WinHex】](https://ck.ligus.top/exe/WinHex.exe)
 [【百田游戏】](https://ck.ligus.top/exe/百田游戏.exe)
 [【Windows超级管理器】](https://ck.ligus.top/exe/Windows超级管理器.exe)
+[【IDM注册机】](https://ck.ligus.top/zip/IDM注册机.7z)
