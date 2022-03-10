@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
 export PATH
+#更新软件列表
 opkg update
+#安装smartdns
 opkg install luci-app-smartdns
-opkg install luci-app-ssr-plus
-opkg install luci-app-dockerman
-opkg install openssh-sftp-server
-opkg install luci-i18n-dockerman-zh-cn
-opkg install luci-i18n-ssr-plus-zh-cn
 opkg install luci-i18n-smartdns-zh-cn
+#安装ssr-plus
+opkg install luci-app-ssr-plus
+opkg install luci-i18n-ssr-plus-zh-cn
+#安装docker
+opkg install luci-app-dockerman
+opkg install luci-i18n-dockerman-zh-cn
+
