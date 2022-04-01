@@ -12,4 +12,5 @@ opkg install luci-i18n-ssr-plus-zh-cn
 #安装docker
 opkg install luci-app-dockerman
 opkg install luci-i18n-dockerman-zh-cn
-
+#安装sftp-server
+opkg install openssh-sftp-server
