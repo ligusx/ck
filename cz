@@ -7,9 +7,7 @@ opkg update
 opkg install luci-app-smartdns
 opkg install luci-i18n-smartdns-zh-cn
 #安装ssr-plus
-opkg install luci-app-ssr-plus
-opkg install luci-i18n-ssr-plus-zh-cn
-#安装docker
-opkg install luci-app-dockerman luci-i18n-dockerman-zh-cn
+opkg install luci-app-passwall
+opkg install luci-i18n-passwall-zh-cn
 #安装openssh-sftp-server
 opkg install openssh-sftp-server
