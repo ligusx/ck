@@ -14,7 +14,7 @@ sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binu
 git clone https://github.com/immortalwrt/immortalwrt.git
 
 # 检查是否存在immortalwrt文件夹
-if [! -d "immortalwrt" ]; then
+if [ ! -d "immortalwrt" ]; then
 echo "immortalwrt克隆失败，请检查网络并重试。"
 exit 1
 fi
