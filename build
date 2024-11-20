@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# 安装依赖软件（这里只是示例，可能需要根据immortalwrt的实际需求调整）
+sudo apt -y update
+sudo apt -y install build - essential subversion libncurses5 - dev zlib1g - dev gawk gcc - multilib flex git - core gettext libssl - dev
+
+# 克隆指定分支的immortalwrt（这里假设分支名为'mybranch'，你需要替换成实际分支名）
+git clone -b mybranch --single - branch --filter = blob:none https://github.com/immortalwrt/immortalwrt
+
+# 进入克隆后的目录
+cd immortalwrt
+
+# 添加feeds源
+./scripts/feeds update -a
+./scripts/feeds install -a
+
+# 配置feeds源（这里执行make defconfig）
+make defconfig
+
+# 执行make download -j$(nproc)
+make download -j$(nproc)
+
+# 执行make -j$(nproc)
+make -j$(nproc)
