@@ -28,7 +28,7 @@ git tag
 echo "请输入想要编译的分支："
 read input_word
 
-# 将用户输入作为grep命令的搜索参数
+# 将用户输入作为git checkout命令的参数
 echo "已输入：$input_word"
 git checkout $input_word
 
