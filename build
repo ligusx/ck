@@ -11,7 +11,9 @@ sudo -E apt-get -qq install build-essential asciidoc binutils bzip2 curl gawk ge
 sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang clangd cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5 libncursesw5-dev libreadline-dev libssl-dev libtool lld lldb lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pip python3-ply python-docutils qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev 
 
 # 克隆immortalwrt
-git clone https://github.com/immortalwrt/immortalwrt.git
+git clone https://gitclone.com/github.com/immortalwrt/immortalwrt.git
+
+sleep 5
 
 # 检查是否存在immortalwrt文件夹
 if [ ! -d "immortalwrt" ]; then
@@ -19,6 +21,9 @@ echo "immortalwrt克隆失败，请检查网络并重试。"
 exit 1
 fi
 echo "immortalwrt克隆完成，继续执行脚本..."
+
+# 进入克隆目录
+cd immortalwrt
 
 # 查看分支
 git tag
@@ -32,13 +37,18 @@ read input_word
 echo "已输入：$input_word"
 git checkout $input_word
 
-# 进入克隆后的目录
-cd immortalwrt
-
 # 自定义操作1：添加额外的feeds
 echo -e "配置常用包..."
-echo "src-git kenzo https://github.com/kenzok8/openwrt-packages" >> ./feeds.conf.default
-echo "src-git small https://github.com/kenzok8/small" >> ./feeds.conf.default
+
+# 检查是否已存在相同软件源，如果有则跳过
+if! grep -q "src-git kenzo https://github.com/kenzok8/openwrt-packages"./feeds.conf.default; then
+    echo "src-git kenzo https://github.com/kenzok8/openwrt-packages" >>./feeds.conf.default
+fi
+
+# 检查是否已存在相同软件源，如果有则跳过
+if! grep -q "src-git small https://github.com/kenzok8/small"./feeds.conf.default; then
+    echo "src-git small https://github.com/kenzok8/small" >>./feeds.conf.default
+fi
 
 # 自定义操作2：修改默认IP
 echo -e "修改默认ip地址..."
