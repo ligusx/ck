@@ -19,6 +19,7 @@ echo "immortalwrt克隆失败，请检查网络并重试。"
 exit 1
 else
 echo "immortalwrt克隆完成，继续执行脚本..."
+
 # 查看分支
 git tag
 
@@ -28,7 +29,7 @@ echo "请输入想要编译的分支："
 read input_word
 
 # 将用户输入作为grep命令的搜索参数
-echo "已输入$input_word"
+echo "已输入：$input_word"
 git checkout $input_word
 
 # 进入克隆后的目录
