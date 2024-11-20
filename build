@@ -13,6 +13,12 @@ sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binu
 # 克隆immortalwrt
 git clone https://github.com/immortalwrt/immortalwrt.git
 
+# 检查是否存在immortalwrt文件夹
+if [! -d "immortalwrt" ]; then
+echo "immortalwrt克隆失败，请检查网络并重试。"
+exit 1
+else
+echo "immortalwrt克隆完成，继续执行脚本..."
 # 查看分支
 git tag
 
@@ -41,11 +47,12 @@ sed -i 's/192.168.1.1/10.0.0.2/g' package/base-files/files/bin/config_generate
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 
-# 配置feeds源（这里执行make defconfig）
-make defconfig
+# 配置feeds源
+make menuconfig
 
-# 执行make download -j$(nproc)
+# 执行下载依赖
 make download -j$(nproc)
 
-# 执行make -j$(nproc)
+# 执行编译固件
 make -j$(nproc)
+fi
