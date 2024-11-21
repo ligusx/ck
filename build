@@ -38,17 +38,20 @@ echo "已输入：$input_word"
 git checkout $input_word
 
 # 自定义操作1：添加额外的feeds
-echo -e "配置常用包..."
 
 # 检查是否已存在相同软件源，如果有则跳过
-if! grep -q "src-git kenzo https://github.com/kenzok8/openwrt-packages"./feeds.conf.default; then
-    echo "src-git kenzo https://github.com/kenzok8/openwrt-packages" >>./feeds.conf.default
+echo "配置常用包..."
+
+# 检查是否已经存在kenzo的配置
+if ! grep -q "src-git kenzo https://github.com/kenzok8/openwrt-packages" ./feeds.conf.default; then
+    echo "src-git kenzo https://github.com/kenzok8/openwrt-packages" >> ./feeds.conf.default
 fi
 
-# 检查是否已存在相同软件源，如果有则跳过
-if! grep -q "src-git small https://github.com/kenzok8/small"./feeds.conf.default; then
-    echo "src-git small https://github.com/kenzok8/small" >>./feeds.conf.default
+# 检查是否已经存在small的配置
+if ! grep -q "src-git small https://github.com/kenzok8/small" ./feeds.conf.default; then
+    echo "src-git small https://github.com/kenzok8/small" >> ./feeds.conf.default
 fi
+
 
 # 自定义操作2：修改默认IP
 echo -e "修改默认ip地址..."
