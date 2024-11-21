@@ -43,13 +43,13 @@ git checkout $input_word
 echo "配置常用包..."
 
 # 检查是否已经存在kenzo的配置
-if ! grep -q "src-git kenzo https://github.com/kenzok8/openwrt-packages" ./feeds.conf.default; then
-    echo "src-git kenzo https://github.com/kenzok8/openwrt-packages" >> ./feeds.conf.default
+if ! grep -q "src-git kenzo https://gitee.com/linux1992/openwrt-packages" ./feeds.conf.default; then
+    echo "src-git kenzo https://gitee.com/linux1992/openwrt-packages" >> ./feeds.conf.default
 fi
 
 # 检查是否已经存在small的配置
-if ! grep -q "src-git small https://github.com/kenzok8/small" ./feeds.conf.default; then
-    echo "src-git small https://github.com/kenzok8/small" >> ./feeds.conf.default
+if ! grep -q "src-git small https://gitee.com/linux1992/small" ./feeds.conf.default; then
+    echo "src-git small https://gitee.com/linux1992/small" >> ./feeds.conf.default
 fi
 
 
