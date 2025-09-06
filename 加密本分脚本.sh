@@ -247,6 +247,24 @@ check_dependencies() {
     fi
 }
 
+# 函数: 检查 rclone 是否已配置远程
+check_rclone_config() {
+    if ! rclone listremotes | grep -q .; then
+        echo "[!] 未检测到 rclone 远程配置"
+        echo ">>> 10 秒内按 Enter 进入 rclone 配置向导，否则自动跳过并继续备份 <<<"
+
+        # 读入用户输入，10 秒超时
+        if read -t 10 -p "" user_input; then
+            echo "[*] 启动 rclone 配置向导..."
+            rclone config
+            echo "[+] rclone 配置完成"
+        else
+            echo "[!] 超时未选择，跳过 rclone 配置，继续执行备份..."
+        fi
+    else
+        echo "[+] 已检测到 rclone 配置: $(rclone listremotes | tr '\n' ' ')"
+    fi
+}
 
 # 函数: 使用dd分割文件（自定义后缀）
 split_with_dd() {
@@ -601,7 +619,7 @@ set -- $(cat "$args_file")
 rm -f "$args_file"
 
 check_dependencies
-
+check_rclone_config
 # 解析参数
 while [ $# -gt 0 ]; do
     case "$1" in
