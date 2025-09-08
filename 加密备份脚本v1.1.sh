@@ -668,7 +668,7 @@ perform_restore() {
     # 清理
     [ "$mode" = "yun" ] && rm -rf "$backup_dir"
 
-    echo "还原成功! 文件已恢复到: $restore_to"
+    echo "数据恢复成功! 文件已恢复到: $restore_to"
 }
 
 # 主程序
