@@ -11,9 +11,10 @@ set -e
 # 6. 手动上传指定目录: ./backup_restore.sh -up /path/to/directory [-pwd 密码]
 # 7. 删除备份: ./backup_restore.sh -del [序号]
 # 8. 自定义密码: 在任何命令后添加 -pwd [密码]
+# 9. 备份指定目录: ./backup_restore.sh -sd /path/to/directory [-pwd 密码] [-up]
 
 # 配置参数
-TARGET_DIR="/data/webdav/user/ligus/legado" # 默认备份路径
+TARGET_DIR="" # 默认备份路径
 BACKUP_DIR="/backups" # 加密备份存储路径
 RESTORE_DIR="/data/webdav/restored"  # 默认恢复路径
 TEMP_DIR="/backups/tmp" # 临时文件处理路径
@@ -26,7 +27,55 @@ SPLIT_SUFFIX=".jpg" #加密文件后缀名
 ZSTD_LEVEL="3" # ZSTD压缩等级
 COMPRESS_SPEED="250M" # 压缩速度
 USER_AGENT="123pan/v2.5.5(Android 13;Xiaomi Mi Max 2)" # 客户端UA伪装
-BACKUP_PREFIX="iPhone_data_backup_"  # 备份名前缀配置参数
+BACKUP_PREFIX="特殊图片和视频_backup_"  # 备份名前缀配置参数
+
+# 函数: 双重加密
+double_encrypt() {
+    local input_file="$1"
+    local output_file="$2"
+    local password="$3"
+    
+    # 生成随机nonce用于ChaCha20 (24字节，16进制表示)
+    local chacha_nonce=$(openssl rand -hex 24)
+    
+    # 第一层: AES256加密 (使用pbkdf2密钥派生)
+    local aes_temp="${TEMP_DIR}/aes_temp.$$"
+    openssl enc -aes-256-cbc -pbkdf2 -iter 10000 -salt -in "$input_file" -out "$aes_temp" -pass pass:"$password" 2>/dev/null || {
+        echo "AES256加密失败!"; rm -f "$aes_temp"; return 1
+    }
+    
+    # 第二层: ChaCha20加密 (使用pbkdf2密钥派生)
+    echo -n "$chacha_nonce" | xxd -r -p > "${output_file}.nonce"
+    openssl enc -chacha20 -pbkdf2 -iter 10000 -in "$aes_temp" -out "$output_file" -pass pass:"$password" -iv "$chacha_nonce" 2>/dev/null || {
+        echo "ChaCha20加密失败!"; rm -f "$aes_temp" "${output_file}.nonce"; return 1
+    }
+    
+    rm -f "$aes_temp"
+    echo "双重加密完成"
+}
+
+# 函数: 双重解密
+double_decrypt() {
+    local input_file="$1"
+    local output_file="$2"
+    local password="$3"
+    local nonce_file="$4"
+    
+    # 第一层: ChaCha20解密 (使用pbkdf2密钥派生)
+    local chacha_temp="${TEMP_DIR}/chacha_temp.$$"
+    local nonce=$(xxd -p -c 48 "$nonce_file" | tr -d '\n')
+    openssl enc -d -chacha20 -pbkdf2 -iter 10000 -in "$input_file" -out "$chacha_temp" -pass pass:"$password" -iv "$nonce" 2>/dev/null || {
+        echo "ChaCha20解密失败!"; rm -f "$chacha_temp"; return 1
+    }
+    
+    # 第二层: AES256解密 (使用pbkdf2密钥派生)
+    openssl enc -d -aes-256-cbc -pbkdf2 -iter 10000 -in "$chacha_temp" -out "$output_file" -pass pass:"$password" 2>/dev/null || {
+        echo "AES256解密失败!"; rm -f "$chacha_temp"; return 1
+    }
+    
+    rm -f "$chacha_temp"
+    echo "双重解密完成"
+}
 
 # 清理临时文件函数
 cleanup() {
@@ -59,7 +108,10 @@ show_examples() {
     echo "6. 手动上传指定目录:"
     echo "   $0 -up /path/to/directory [-pwd 密码]"
     echo ""
-    echo "7. 显示帮助:"
+    echo "7. 备份指定目录:"
+    echo "   $0 -sd /path/to/directory [-pwd 密码] [-up]"
+    echo ""
+    echo "8. 显示帮助:"
     echo "   $0 -h"
     exit 0
 }
@@ -67,7 +119,7 @@ show_examples() {
 # 函数: 显示用法
 show_usage() {
     echo "用法:"
-    echo "  $0 [-h] [-list] [-r 备份路径/序号] [-to 恢复路径] [-up 目录] [-del 序号] [-pwd 密码]"
+    echo "  $0 [-h] [-list] [-r 备份路径/序号] [-to 恢复路径] [-up 目录] [-del 序号] [-sd 目录] [-pwd 密码]"
     show_examples
     exit 1
 }
@@ -210,7 +262,7 @@ determine_backup_location() {
 
 # 函数: 检查并安装依赖
 check_dependencies() {
-    local dependencies="tar zstd pv rclone jq openssl coreutils findutils"
+    local dependencies="tar zstd pv rclone jq openssl coreutils findutils xxd"
     local missing=""
     
     for dep in $dependencies; do
@@ -224,20 +276,20 @@ check_dependencies() {
         
         if [ -f /etc/alpine-release ]; then
             echo "检测到 Alpine 系统，使用 apk 安装"
-            apk add --no-cache $missing || { echo "依赖安装失败!"; exit 1; }
+            apk add --no-cache $missing vim-common || { echo "依赖安装失败!"; exit 1; }
         
         elif [ -f /etc/debian_version ]; then
             echo "检测到 Debian/Ubuntu 系统，使用 apt 安装"
             apt-get update -y
-            apt-get install -y $missing || { echo "依赖安装失败!"; exit 1; }
+            apt-get install -y $missing vim-common || { echo "依赖安装失败!"; exit 1; }
         
         elif [ -f /etc/redhat-release ] || [ -f /etc/centos-release ]; then
             if command -v dnf >/dev/null 2>&1; then
                 echo "检测到 RHEL/CentOS/Fedora 系统，使用 dnf 安装"
-                dnf install -y $missing || { echo "依赖安装失败!"; exit 1; }
+                dnf install -y $missing vim-common || { echo "依赖安装失败!"; exit 1; }
             else
                 echo "检测到 RHEL/CentOS 系统，使用 yum 安装"
-                yum install -y $missing || { echo "依赖安装失败!"; exit 1; }
+                yum install -y $missing vim-common || { echo "依赖安装失败!"; exit 1; }
             fi
         
         else
@@ -403,6 +455,7 @@ compare_and_download() {
 perform_backup() {
     local target_dir="$1"
     local backup_name="${2:-${BACKUP_PREFIX}$(date +"%Y%m%d_%H%M%S")}"  # 使用配置的前缀
+    local upload_after_backup="${3:-false}"  # 是否在备份后上传
     
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] 开始备份流程 (密码: ${PASSWORD:0:2}****)"
     
@@ -422,10 +475,10 @@ perform_backup() {
     echo "正在校验压缩文件..."
     zstd -t "$zst_file" || { echo "压缩文件校验失败!"; rm -f "$zst_file"; return 1; }
     
-    # 加密
-    echo "正在加密文件..."
-    openssl enc -aes256 -pbkdf2 -in "$zst_file" -out "$enc_file" -pass pass:"$PASSWORD" || {
-        echo "加密失败!"; rm -f "$enc_file"; return 1
+    # 双重加密
+    echo "正在双重加密文件..."
+    double_encrypt "$zst_file" "$enc_file" "$PASSWORD" || {
+        echo "双重加密失败!"; rm -f "$enc_file"; return 1
     }
     rm -f "$zst_file"
     
@@ -441,12 +494,14 @@ perform_backup() {
     ( cd "$backup_folder" && find . -type f -not -name "checksums.*" -exec md5sum {} + > checksums.md5 && \
       sha256sum * > checksums.sha256 ) || { echo "创建校验文件失败!"; return 1; }
     
-    # 上传
-    echo "正在上传到网盘..."
-    rclone mkdir "$RCLONE_REMOTE:${RCLONE_PATH%/}/${backup_name}" && \
-    rclone copy "$backup_folder" "$RCLONE_REMOTE:${RCLONE_PATH%/}/${backup_name}" || {
-        echo "上传失败!"; return 1
-    }
+    # 如果指定了上传，则上传到网盘
+    if [ "$upload_after_backup" = "true" ]; then
+        echo "正在上传到网盘..."
+        rclone mkdir "$RCLONE_REMOTE:${RCLONE_PATH%/}/${backup_name}" && \
+        rclone copy "$backup_folder" "$RCLONE_REMOTE:${RCLONE_PATH%/}/${backup_name}" || {
+            echo "上传失败!"; return 1
+        }
+    fi
     
     # 清理旧备份（仅清理带配置前缀的）
     echo "清理旧备份（保留最新${KEEP_LATEST}份，仅处理${BACKUP_PREFIX}前缀）..."
@@ -455,7 +510,7 @@ perform_backup() {
     awk -v keep="$KEEP_LATEST" 'NR > keep {print $0}' | \
     while read -r dir; do rm -rf "$dir"; done
 
-    if command -v rclone >/dev/null 2>&1; then
+    if [ "$upload_after_backup" = "true" ] && command -v rclone >/dev/null 2>&1; then
         rclone lsd "$RCLONE_REMOTE:$RCLONE_PATH" | \
         awk '{print $5}' | grep "^${BACKUP_PREFIX}" | \
         grep -v "${backup_name}" | sort -r | \
@@ -479,8 +534,26 @@ manual_upload() {
     backup_name="${dir_name}_${timestamp}"
     
     echo "正在执行备份: $backup_name"
-    perform_backup "$dir_to_backup" "$backup_name" || exit 1
+    perform_backup "$dir_to_backup" "$backup_name" "true" || exit 1
     echo "手动上传完成"
+}
+
+# 函数: 备份指定目录
+backup_specific_directory() {
+    local dir_to_backup="$1"
+    local upload_after_backup="$2"
+    [ ! -d "$dir_to_backup" ] && { echo "目录不存在: $dir_to_backup"; exit 1; }
+    
+    echo "开始备份指定目录: $dir_to_backup (密码: ${PASSWORD:0:2}****)"
+    
+    # 使用目录名作为备份名
+    local dir_name=$(basename "$dir_to_backup")
+    timestamp=$(date +"%Y%m%d_%H%M%S")
+    backup_name="${dir_name}_${timestamp}"
+    
+    echo "正在执行备份: $backup_name"
+    perform_backup "$dir_to_backup" "$backup_name" "$upload_after_backup" || exit 1
+    echo "指定目录备份完成"
 }
 
 # 函数: 删除备份
@@ -577,11 +650,11 @@ perform_restore() {
         echo "找不到备份文件"; exit 1
     fi
 
-    # 解密
-    echo "正在解密文件..."
+    # 双重解密
+    echo "正在双重解密文件..."
     zst_file="${enc_file%.aes}"
-    openssl enc -d -aes256 -pbkdf2 -in "$enc_file" -out "$zst_file" -pass pass:"$PASSWORD" || {
-        echo "解密失败!"; rm -f "$zst_file"; exit 1
+    double_decrypt "$enc_file" "$zst_file" "$PASSWORD" "${backup_dir}/${backup_name}.aes.nonce" || {
+        echo "双重解密失败!"; rm -f "$zst_file"; exit 1
     }
     rm -f "$enc_file"
 
@@ -620,6 +693,7 @@ rm -f "$args_file"
 
 check_dependencies
 check_rclone_config
+
 # 解析参数
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -682,6 +756,22 @@ while [ $# -gt 0 ]; do
             shift
             [ $# -eq 0 ] && { echo "必须指定序号"; show_usage; }
             delete_backup "$1"
+            exit 0
+            ;;
+        -sd)
+            shift
+            [ $# -eq 0 ] && { echo "必须指定目录路径"; show_usage; }
+            dir_to_backup="$1"
+            shift
+            
+            # 检查是否包含 -up 参数
+            upload_after_backup="false"
+            if [ "$1" = "-up" ]; then
+                upload_after_backup="true"
+                shift
+            fi
+            
+            backup_specific_directory "$dir_to_backup" "$upload_after_backup"
             exit 0
             ;;
         *)
