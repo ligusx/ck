@@ -28,6 +28,7 @@ ZSTD_LEVEL="3" # ZSTD压缩等级
 COMPRESS_SPEED="250M" # 压缩速度
 USER_AGENT="123pan/v2.5.5(Android 13;Xiaomi Mi Max 2)" # 客户端UA伪装
 BACKUP_PREFIX="特殊图片和视频_backup_"  # 备份名前缀配置参数
+AUTO_UPLOAD="true"  # 设置为 (true/false) 来设置是否自动上传备份到网盘
 
 # 函数: 双重加密
 double_encrypt() {
@@ -782,4 +783,4 @@ while [ $# -gt 0 ]; do
 done
 
 # 默认执行备份
-perform_backup "$TARGET_DIR"
+perform_backup "$TARGET_DIR" "" "$AUTO_UPLOAD"
