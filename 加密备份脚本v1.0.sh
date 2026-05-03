@@ -270,20 +270,34 @@ check_dependencies() {
 
 # 函数: 检查 rclone 是否已配置远程
 check_rclone_config() {
-    if ! rclone listremotes | grep -q .; then
-        echo "[!] 未检测到 rclone 远程配置"
-        echo ">>> 10 秒内按 Enter 进入 rclone 配置向导，否则自动跳过并继续备份 <<<"
+    # 检查配置文件是否存在
+    if [ ! -f "$HOME/.config/rclone/rclone.conf" ] && [ ! -f "$HOME/.config/rclone/rclone.conf" ]; then
+        # 配置不存在，重定向 stderr 以隐藏 NOTICE 信息
+        if ! rclone listremotes 2>/dev/null | grep -q .; then
+            echo "[!] 未检测到 rclone 远程配置"
+            echo ">>> 10 秒内按 Enter 进入 rclone 配置向导，否则自动跳过并继续备份 <<<"
 
-        # 读入用户输入，10 秒超时
-        if read -t 10 -p "" user_input; then
-            echo "[*] 启动 rclone 配置向导..."
-            rclone config
-            echo "[+] rclone 配置完成"
-        else
-            echo "[!] 超时未选择，跳过 rclone 配置，继续执行备份..."
+            # 读入用户输入，10 秒超时
+            if read -t 10 -p "" user_input; then
+                echo "[*] 启动 rclone 配置向导..."
+                rclone config
+                echo "[+] rclone 配置完成"
+                
+                # 创建配置文件后再次验证
+                if ! rclone listremotes 2>/dev/null | grep -q .; then
+                    echo "[!] 警告: rclone 配置可能不完整，将继续执行但网盘功能不可用"
+                fi
+            else
+                echo "[!] 超时未选择，跳过 rclone 配置，继续执行备份..."
+            fi
         fi
     else
-        echo "[+] 已检测到 rclone 配置: $(rclone listremotes | tr '\n' ' ')"
+        # 配置文件存在，静默检查远程配置
+        if rclone listremotes 2>/dev/null | grep -q .; then
+            echo "[+] 已检测到 rclone 配置: $(rclone listremotes 2>/dev/null | tr '\n' ' ')"
+        else
+            echo "[!] 警告: rclone 配置文件存在但未配置远程，网盘功能不可用"
+        fi
     fi
 }
 
