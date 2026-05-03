@@ -11,7 +11,7 @@ set -e
 # 6. 手动上传指定目录: ./backup_restore.sh -up /path/to/directory [-pwd 密码]
 # 7. 删除备份: ./backup_restore.sh -del [序号]
 # 8. 自定义密码: 在任何命令后添加 -pwd [密码]
-# 9. 备份指定目录: ./backup_restore.sh -sd /path/to/directory [-pwd 密码] [-up]
+# 9. 备份指定目录并上传: ./backup_restore.sh -sd /path/to/directory [-pwd 密码] [-up]
 
 # 配置参数
 TARGET_DIR="" # 默认备份路径
@@ -20,14 +20,14 @@ RESTORE_DIR="/data/webdav/restored"  # 默认恢复路径
 TEMP_DIR="/backups/tmp" # 临时文件处理路径
 PASSWORD="" # 默认密码
 RCLONE_REMOTE="123pan" # 网盘存储名称
-RCLONE_PATH="/" # 网盘存储路径
+RCLONE_PATH="/123pan" # 网盘存储路径
 KEEP_LATEST="3" # 保留加密文件份数
 SPLIT_SIZE="100M" #默认加密文件分割大小
 SPLIT_SUFFIX=".jpg" #加密文件后缀名
 ZSTD_LEVEL="3" # ZSTD压缩等级
 COMPRESS_SPEED="250M" # 压缩速度
 USER_AGENT="123pan/v2.5.5(Android 13;Xiaomi Mi Max 2)" # 客户端UA伪装
-BACKUP_PREFIX="特殊图片和视频_backup_"  # 备份名前缀配置参数
+BACKUP_PREFIX="_backup_"  # 备份名前缀配置参数
 AUTO_UPLOAD="true"  # 设置为 (true/false) 来设置是否自动上传备份到网盘
 
 # 清理临时文件函数
@@ -37,6 +37,15 @@ cleanup() {
     [ -n "$yun_backups_file" ] && rm -f "$yun_backups_file"
 }
 trap cleanup EXIT
+
+# 检查网盘是否可用
+check_rclone_available() {
+    if rclone listremotes 2>/dev/null | grep -q "^${RCLONE_REMOTE}:"; then
+        return 0
+    else
+        return 1
+    fi
+}
 
 # 函数: 显示示例命令
 show_examples() {
@@ -111,12 +120,12 @@ get_backup_list() {
         done
     fi
     
-    # 网盘备份（显示所有目录，移除grep过滤）
-    if command -v rclone >/dev/null 2>&1; then
-        rclone lsf "$RCLONE_REMOTE:$RCLONE_PATH" --dirs-only --max-depth 1 | sort -r | while IFS= read -r dir; do
+    # 网盘备份（仅在配置可用时显示）
+    if check_rclone_available; then
+        rclone lsf "$RCLONE_REMOTE:$RCLONE_PATH" --dirs-only --max-depth 1 2>/dev/null | sort -r | while IFS= read -r dir; do
             info=$(rclone size "$RCLONE_REMOTE:${RCLONE_PATH%/}/${dir}" --json 2>/dev/null)
-            size=$(echo "$info" | jq -r '.bytes' | awk '{if($1>=1024^3) printf "%.2f GB", $1/1024/1024/1024; else if($1>=1024^2) printf "%.2f MB", $1/1024/1024; else if($1>=1024) printf "%.2f KB", $1/1024; else printf "%d bytes", $1}')
-            mtime=$(rclone lsf "$RCLONE_REMOTE:${RCLONE_PATH%/}/${dir}" --format "t" --files-only --max-depth 1 | head -1 | cut -d';' -f2)
+            size=$(echo "$info" | jq -r '.bytes' 2>/dev/null | awk '{if($1>=1024^3) printf "%.2f GB", $1/1024/1024/1024; else if($1>=1024^2) printf "%.2f MB", $1/1024/1024; else if($1>=1024) printf "%.2f KB", $1/1024; else printf "%d bytes", $1}')
+            mtime=$(rclone lsf "$RCLONE_REMOTE:${RCLONE_PATH%/}/${dir}" --format "t" --files-only --max-depth 1 2>/dev/null | head -1 | cut -d';' -f2)
             printf "%s (大小: %s, 修改时间: %s)\n" "$dir" "${size:-未知}" "${mtime:-未知}" >> "$yun_backups_file"
         done
     fi
@@ -148,15 +157,19 @@ show_backup_list() {
 
     echo "网盘备份列表 (${RCLONE_REMOTE}:${RCLONE_PATH}):"
     echo "----------------------------------------"
-    if [ -n "$yun_backups" ]; then
-        local_count=$(echo "$local_backups" | wc -l)
-        i=$((local_count + 1))
-        echo "$yun_backups" | while IFS= read -r line; do
-            printf "%2d. %s\n" "$i" "$line"
-            i=$((i+1))
-        done
+    if check_rclone_available; then
+        if [ -n "$yun_backups" ]; then
+            local_count=$(echo "$local_backups" | wc -l)
+            i=$((local_count + 1))
+            echo "$yun_backups" | while IFS= read -r line; do
+                printf "%2d. %s\n" "$i" "$line"
+                i=$((i+1))
+            done
+        else
+            echo "没有找到网盘备份"
+        fi
     else
-        echo "没有找到网盘备份"
+        echo "网盘未配置，请先运行 'rclone config' 配置远程存储"
     fi
     echo "----------------------------------------"
     echo "使用示例: $0 -r ${BACKUP_PREFIX}20240101_120000 [-to /custom/path]"
@@ -203,7 +216,7 @@ determine_backup_location() {
             echo "local"
         else
             # 检查是否是网盘备份
-            if rclone lsf "${RCLONE_REMOTE}:${RCLONE_PATH%/}/${backup_arg}" >/dev/null 2>&1; then
+            if check_rclone_available && rclone lsf "${RCLONE_REMOTE}:${RCLONE_PATH%/}/${backup_arg}" >/dev/null 2>&1; then
                 echo "yun"
             else
                 echo "无法确定备份位置: $backup_arg"
@@ -215,7 +228,7 @@ determine_backup_location() {
 
 # 函数: 检查并安装依赖
 check_dependencies() {
-    local dependencies="tar zstd pv rclone jq openssl"  # 移除 coreutils 和 findutils
+    local dependencies="tar zstd pv rclone jq openssl"
     local missing=""
     
     for dep in $dependencies; do
@@ -246,9 +259,7 @@ check_dependencies() {
         elif [ -f /etc/debian_version ]; then
             echo "检测到 Debian/Ubuntu 系统，使用 apt 安装"
             apt-get update -y
-            # 在 Debian/Ubuntu 中，md5sum/sha256sum 在 coreutils 包，find 在 findutils 包
             apt-get install -y $missing coreutils findutils 2>/dev/null || {
-                # 如果 coreutils/findutils 已经安装，只安装缺失的其他包
                 apt-get install -y $missing || { echo "依赖安装失败!"; exit 1; }
             }
         
@@ -270,33 +281,40 @@ check_dependencies() {
 
 # 函数: 检查 rclone 是否已配置远程
 check_rclone_config() {
-    # 检查配置文件是否存在
-    if [ ! -f "$HOME/.config/rclone/rclone.conf" ] && [ ! -f "$HOME/.config/rclone/rclone.conf" ]; then
-        # 配置不存在，重定向 stderr 以隐藏 NOTICE 信息
-        if ! rclone listremotes 2>/dev/null | grep -q .; then
-            echo "[!] 未检测到 rclone 远程配置"
-            echo ">>> 10 秒内按 Enter 进入 rclone 配置向导，否则自动跳过并继续备份 <<<"
+    local config_file=""
+    
+    # 检查可能的配置文件位置
+    if [ -f "$HOME/.config/rclone/rclone.conf" ]; then
+        config_file="$HOME/.config/rclone/rclone.conf"
+    elif [ -f "/root/.config/rclone/rclone.conf" ]; then
+        config_file="/root/.config/rclone/rclone.conf"
+    fi
+    
+    if [ -z "$config_file" ]; then
+        # 配置文件不存在，提示用户配置
+        echo "[!] rclone 配置文件不存在"
+        echo ">>> 10 秒内按 Enter 进入 rclone 配置向导，否则自动跳过并继续 <<<"
 
-            # 读入用户输入，10 秒超时
-            if read -t 10 -p "" user_input; then
-                echo "[*] 启动 rclone 配置向导..."
-                rclone config
-                echo "[+] rclone 配置完成"
-                
-                # 创建配置文件后再次验证
-                if ! rclone listremotes 2>/dev/null | grep -q .; then
-                    echo "[!] 警告: rclone 配置可能不完整，将继续执行但网盘功能不可用"
-                fi
+        if read -t 10 -p "" user_input; then
+            echo "[*] 启动 rclone 配置向导..."
+            rclone config
+            echo "[+] rclone 配置完成"
+            
+            # 检查配置是否成功
+            if check_rclone_available; then
+                echo "[+] 网盘配置成功，网盘功能可用"
             else
-                echo "[!] 超时未选择，跳过 rclone 配置，继续执行备份..."
+                echo "[!] 警告: 网盘配置可能不完整，网盘功能不可用"
             fi
+        else
+            echo "[!] 超时未选择，跳过 rclone 配置，网盘功能不可用"
         fi
     else
-        # 配置文件存在，静默检查远程配置
-        if rclone listremotes 2>/dev/null | grep -q .; then
-            echo "[+] 已检测到 rclone 配置: $(rclone listremotes 2>/dev/null | tr '\n' ' ')"
+        # 配置文件存在，检查是否有远程配置
+        if check_rclone_available; then
+            echo "[+] 已检测到 rclone 配置: ${RCLONE_REMOTE}"
         else
-            echo "[!] 警告: rclone 配置文件存在但未配置远程，网盘功能不可用"
+            echo "[!] 警告: rclone 配置文件存在但未配置远程 ${RCLONE_REMOTE}，网盘功能不可用"
         fi
     fi
 }
@@ -356,14 +374,14 @@ verify_split_files() {
         local md5_result_file=$(mktemp)
         (cd "$backup_dir" && md5sum -c checksums.md5 2>/dev/null > "$md5_result_file")
         
-        # 按数字顺序排序并显示结果
-        grep -E "\.aes\.[0-9]+${SPLIT_SUFFIX}" "$md5_result_file" | \
-        sort -t. -k3 -n | \
+        # 按数字顺序排序并显示结果，去除路径中的 ./
+        grep -E "\.aes(\.[0-9]+)?${SPLIT_SUFFIX}" "$md5_result_file" | \
+        sort -V | \
         while read -r line; do
-            # 提取文件名和状态
-            local file=$(echo "$line" | cut -d: -f1)
+            # 提取文件名并去除可能的路径前缀
+            local file=$(echo "$line" | awk -F: '{print $1}' | sed 's|^\./||;s|^\./\./||')
             local status=$(echo "$line" | cut -d: -f2-)
-            printf "./%-40s %s\n" "$file" "$status"
+            printf "  %-40s %s\n" "$file" "$status"
         done
         
         # 检查是否有失败项
@@ -375,29 +393,29 @@ verify_split_files() {
         rm -f "$md5_result_file"
     fi
     
-    # SHA256校验（可选，根据需要可以取消注释）
-     if [ ! -f "$backup_dir/checksums.sha256" ]; then
-         echo "警告: 找不到SHA256校验文件，跳过SHA256校验"
-     else
-         echo "正在进行SHA256校验:"
-         local sha_result_file=$(mktemp)
-         (cd "$backup_dir" && sha256sum -c checksums.sha256 2>/dev/null > "$sha_result_file")
-         
-         grep -E "\.aes\.[0-9]+${SPLIT_SUFFIX}" "$sha_result_file" | \
-         sort -t. -k3 -n | \
-         while read -r line; do
-             local file=$(echo "$line" | cut -d: -f1)
-             local status=$(echo "$line" | cut -d: -f2-)
-             printf "./%-40s %s\n" "$file" "$status"
-         done
-         
-         if grep -q "FAILED" "$sha_result_file"; then
-             rm -f "$sha_result_file"
-             echo "错误: SHA256校验失败"
-             return 1
-         fi
-         rm -f "$sha_result_file"
-     fi
+    # SHA256校验
+    if [ ! -f "$backup_dir/checksums.sha256" ]; then
+        echo "警告: 找不到SHA256校验文件，跳过SHA256校验"
+    else
+        echo "正在进行SHA256校验:"
+        local sha_result_file=$(mktemp)
+        (cd "$backup_dir" && sha256sum -c checksums.sha256 2>/dev/null > "$sha_result_file")
+        
+        grep -E "\.aes(\.[0-9]+)?${SPLIT_SUFFIX}" "$sha_result_file" | \
+        sort -V | \
+        while read -r line; do
+            local file=$(echo "$line" | awk -F: '{print $1}' | sed 's|^\./||;s|^\./\./||')
+            local status=$(echo "$line" | cut -d: -f2-)
+            printf "  %-40s %s\n" "$file" "$status"
+        done
+        
+        if grep -q "FAILED" "$sha_result_file"; then
+            rm -f "$sha_result_file"
+            echo "错误: SHA256校验失败"
+            return 1
+        fi
+        rm -f "$sha_result_file"
+    fi
     
     echo "所有分割文件校验通过"
     return 0
@@ -421,11 +439,11 @@ compare_and_download() {
     
     # 如果有缺失文件，只下载缺失的文件
     if [ -n "$missing_files" ]; then
-        echo "发现 ${#missing_files[@]} 个文件需要下载..."
+        echo "发现 $(echo "$missing_files" | wc -w) 个文件需要下载..."
         for file in $missing_files; do
             echo "正在下载缺失文件: $file"
             rclone copy "${RCLONE_REMOTE}:${RCLONE_PATH%/}/${remote_dir}/${file}" "$local_dir" \
-            --user-agent "$USER_AGENT" || { echo "下载失败: $file"; return 1; }
+            --user-agent "$USER_AGENT" 2>/dev/null || { echo "下载失败: $file"; return 1; }
         done
     else
         echo "所有文件已存在本地，无需下载"
@@ -437,8 +455,8 @@ compare_and_download() {
 # 函数: 备份流程
 perform_backup() {
     local target_dir="$1"
-    local backup_name="${2:-${BACKUP_PREFIX}$(date +"%Y%m%d_%H%M%S")}"  # 使用配置的前缀
-    local upload_after_backup="${3:-false}"  # 是否在备份后上传
+    local backup_name="${2:-${BACKUP_PREFIX}$(date +"%Y%m%d_%H%M%S")}"
+    local upload_after_backup="${3:-false}"
     
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] 开始备份流程 (密码: ${PASSWORD:0:2}****)"
     
@@ -474,16 +492,25 @@ perform_backup() {
     
     # 校验文件
     echo "正在创建校验文件..."
-    ( cd "$backup_folder" && find . -type f -not -name "checksums.*" -exec md5sum {} + > checksums.md5 && \
-      sha256sum * > checksums.sha256 ) || { echo "创建校验文件失败!"; return 1; }
+    ( cd "$backup_folder" && \
+      for f in *; do
+          [ "$f" != "checksums.md5" ] && [ "$f" != "checksums.sha256" ] && \
+          md5sum "$f" >> checksums.md5 2>/dev/null
+      done && \
+      sha256sum * 2>/dev/null | grep -v checksums > checksums.sha256 ) || \
+      { echo "创建校验文件失败!"; return 1; }
     
     # 如果指定了上传，则上传到网盘
     if [ "$upload_after_backup" = "true" ]; then
-        echo "正在上传到网盘..."
-        rclone mkdir "$RCLONE_REMOTE:${RCLONE_PATH%/}/${backup_name}" && \
-        rclone copy "$backup_folder" "$RCLONE_REMOTE:${RCLONE_PATH%/}/${backup_name}" || {
-            echo "上传失败!"; return 1
-        }
+        if check_rclone_available; then
+            echo "正在上传到网盘..."
+            rclone mkdir "${RCLONE_REMOTE}:${RCLONE_PATH%/}/${backup_name}" 2>/dev/null && \
+            rclone copy "$backup_folder" "${RCLONE_REMOTE}:${RCLONE_PATH%/}/${backup_name}" 2>/dev/null || {
+                echo "上传失败!"; return 1
+            }
+        else
+            echo "[!] 跳过上传：网盘未配置"
+        fi
     fi
     
     # 清理旧备份（仅清理带配置前缀的）
@@ -493,12 +520,15 @@ perform_backup() {
     awk -v keep="$KEEP_LATEST" 'NR > keep {print $0}' | \
     while read -r dir; do rm -rf "$dir"; done
 
-    if [ "$upload_after_backup" = "true" ] && command -v rclone >/dev/null 2>&1; then
-        rclone lsd "$RCLONE_REMOTE:$RCLONE_PATH" | \
+    # 网盘清理（仅在配置可用时）
+    if check_rclone_available; then
+        rclone lsd "${RCLONE_REMOTE}:${RCLONE_PATH}" 2>/dev/null | \
         awk '{print $5}' | grep "^${BACKUP_PREFIX}" | \
         grep -v "${backup_name}" | sort -r | \
         awk -v keep="$KEEP_LATEST" 'NR > keep {print $0}' | \
-        while read -r dir; do rclone purge "$RCLONE_REMOTE:${RCLONE_PATH%/}/${dir}"; done
+        while read -r dir; do 
+            rclone purge "${RCLONE_REMOTE}:${RCLONE_PATH%/}/${dir}" 2>/dev/null
+        done
     fi
     
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] 备份完成: ${backup_name}"
@@ -508,6 +538,13 @@ perform_backup() {
 manual_upload() {
     local dir_to_backup="$1"
     [ ! -d "$dir_to_backup" ] && { echo "目录不存在: $dir_to_backup"; exit 1; }
+    
+    # 检查网盘配置
+    if ! check_rclone_available; then
+        echo "错误: 网盘未配置，无法上传"
+        echo "请先运行 'rclone config' 配置远程存储"
+        exit 1
+    fi
     
     echo "开始手动上传目录: $dir_to_backup (密码: ${PASSWORD:0:2}****)"
     
@@ -526,6 +563,15 @@ backup_specific_directory() {
     local dir_to_backup="$1"
     local upload_after_backup="$2"
     [ ! -d "$dir_to_backup" ] && { echo "目录不存在: $dir_to_backup"; exit 1; }
+    
+    # 如果要求上传，检查网盘配置
+    if [ "$upload_after_backup" = "true" ]; then
+        if ! check_rclone_available; then
+            echo "错误: 网盘未配置，无法上传"
+            echo "请先运行 'rclone config' 配置远程存储"
+            exit 1
+        fi
+    fi
     
     echo "开始备份指定目录: $dir_to_backup (密码: ${PASSWORD:0:2}****)"
     
@@ -550,16 +596,21 @@ delete_backup() {
         rm -rf "${BACKUP_DIR}/${backup_name}" || { echo "删除失败"; exit 1; }
         echo "本地备份删除成功"
     else
-        echo "正在删除网盘备份: $backup_name"
-        rclone purge "$RCLONE_REMOTE:${RCLONE_PATH%/}/${backup_name}" || { echo "删除失败"; exit 1; }
-        echo "网盘备份删除成功"
+        if check_rclone_available; then
+            echo "正在删除网盘备份: $backup_name"
+            rclone purge "$RCLONE_REMOTE:${RCLONE_PATH%/}/${backup_name}" 2>/dev/null || { echo "删除失败"; exit 1; }
+            echo "网盘备份删除成功"
+        else
+            echo "错误: 网盘未配置，无法删除网盘备份"
+            exit 1
+        fi
     fi
 }
 
 # 函数: 还原流程
 perform_restore() {
     local backup_arg="$1"
-    local restore_to="${2:-$RESTORE_DIR}"  # 如果没有指定恢复路径，使用默认值
+    local restore_to="${2:-$RESTORE_DIR}"
     
     # 自动判断备份位置
     local mode=$(determine_backup_location "$backup_arg")
@@ -577,6 +628,12 @@ perform_restore() {
     mkdir -p "$restore_to" || { echo "无法创建恢复目录: $restore_to"; exit 1; }
     
     if [ "$mode" = "yun" ]; then
+        # 检查网盘配置
+        if ! check_rclone_available; then
+            echo "错误: 网盘未配置，无法从网盘还原"
+            exit 1
+        fi
+        
         # 网盘还原模式
         backup_dir="${TEMP_DIR}/${backup_name}"
         backup_prefix="${backup_dir}/${backup_name}.aes"
@@ -585,13 +642,13 @@ perform_restore() {
         mkdir -p "$backup_dir"
         
         # 先检查本地是否已有部分文件
-        if [ -d "$backup_dir" ] && [ "$(ls -1 "$backup_dir" | wc -l)" -gt 0 ]; then
+        if [ -d "$backup_dir" ] && [ "$(ls -1 "$backup_dir" 2>/dev/null | wc -l)" -gt 0 ]; then
             echo "发现本地已有部分文件，开始对比并下载缺失文件..."
             compare_and_download "$backup_name" "$backup_dir" || { echo "差异下载失败!"; exit 1; }
         else
             echo "正在从网盘下载备份文件..."
             rclone copy "${RCLONE_REMOTE}:${RCLONE_PATH%/}/${backup_name}" "$backup_dir" \
-            --user-agent "$USER_AGENT" || { echo "下载失败!"; exit 1; }
+            --user-agent "$USER_AGENT" 2>/dev/null || { echo "下载失败!"; exit 1; }
         fi
         
         if ! ls "${backup_prefix}."[0-9][0-9][0-9]"${SPLIT_SUFFIX}" >/dev/null 2>&1 && \
@@ -681,7 +738,7 @@ check_rclone_config
 while [ $# -gt 0 ]; do
     case "$1" in
         "")
-            perform_backup "$TARGET_DIR"
+            perform_backup "$TARGET_DIR" "" "$AUTO_UPLOAD"
             exit 0
             ;;
         -r)
@@ -714,27 +771,66 @@ while [ $# -gt 0 ]; do
             ;;
         -up)
             shift
-            # 查找最新的备份目录
-            latest_backup=$(find "$BACKUP_DIR" -maxdepth 1 -type d -name "${BACKUP_PREFIX}*" | grep -v "$TEMP_DIR" | sort -r | head -n 1)
-            
-            if [ -z "$latest_backup" ]; then
-                echo "错误: 找不到可用的备份目录"
+            # 检查网盘配置
+            if ! check_rclone_available; then
+                echo "错误: 网盘未配置，无法上传"
+                echo "请先运行 'rclone config' 配置远程存储"
                 exit 1
             fi
             
-            backup_name=$(basename "$latest_backup")
-            echo "[$(date +'%Y-%m-%d %H:%M:%S')] 开始上传已有备份: $backup_name"
+            # 检查是否提供了目录参数
+            if [ $# -gt 0 ] && [ -d "$1" ]; then
+                # 使用了指定的目录
+                dir_to_upload="$1"
+                shift
+            else
+                # 没有提供目录或提供的不是有效目录，自动查找最新的备份目录
+                echo "未指定有效目录，自动查找最新备份..."
+                latest_backup=$(find "$BACKUP_DIR" -maxdepth 1 -type d -name "${BACKUP_PREFIX}*" | grep -v "$TEMP_DIR" | sort -r | head -n 1)
+                
+                if [ -z "$latest_backup" ]; then
+                    echo "错误: 找不到可用的备份目录"
+                    echo "用法: $0 -up [备份目录路径]"
+                    echo "示例: $0 -up /backups/特殊图片和视频_20260503_131314"
+                    exit 1
+                fi
+                dir_to_upload="$latest_backup"
+                echo "找到最新备份: $dir_to_upload"
+            fi
+            
+            backup_name=$(basename "$dir_to_upload")
+            echo "[$(date +'%Y-%m-%d %H:%M:%S')] 开始上传备份: $backup_name"
+            
+            # 检查目录是否为空
+            if [ -z "$(ls -A "$dir_to_upload" 2>/dev/null)" ]; then
+                echo "错误: 备份目录为空: $dir_to_upload"
+                exit 1
+            fi
+            
+            # 显示目录内容
+            echo "目录内容:"
+            ls -lh "$dir_to_upload" | head -10
+            if [ "$(ls -1 "$dir_to_upload" | wc -l)" -gt 10 ]; then
+                echo "... 还有 $(($(ls -1 "$dir_to_upload" | wc -l) - 10)) 个文件"
+            fi
             
             # 直接上传已有备份目录
             echo "正在上传到网盘..."
-            rclone mkdir "$RCLONE_REMOTE:${RCLONE_PATH%/}/${backup_name}" && \
-            rclone copy "$latest_backup" "$RCLONE_REMOTE:${RCLONE_PATH%/}/${backup_name}" || {
-                echo "上传失败!"; exit 1
-            }
+            if rclone mkdir "${RCLONE_REMOTE}:${RCLONE_PATH%/}/${backup_name}" 2>/dev/null; then
+                echo "创建远程目录成功"
+            fi
             
-            echo "[$(date +'%Y-%m-%d %H:%M:%S')] 上传完成: ${backup_name}"
+            if rclone copy "$dir_to_upload" "${RCLONE_REMOTE}:${RCLONE_PATH%/}/${backup_name}" \
+                --progress \
+                --user-agent "$USER_AGENT" 2>/dev/null; then
+                echo "[$(date +'%Y-%m-%d %H:%M:%S')] 上传完成: ${backup_name}"
+            else
+                echo "上传失败!"
+                exit 1
+            fi
             exit 0
             ;;
+
         -del)
             shift
             [ $# -eq 0 ] && { echo "必须指定序号"; show_usage; }
