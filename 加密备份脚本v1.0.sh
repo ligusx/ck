@@ -215,7 +215,7 @@ determine_backup_location() {
 
 # 函数: 检查并安装依赖
 check_dependencies() {
-    local dependencies="tar zstd pv rclone jq openssl coreutils findutils"
+    local dependencies="tar zstd pv rclone jq openssl"  # 移除 coreutils 和 findutils
     local missing=""
     
     for dep in $dependencies; do
@@ -223,6 +223,18 @@ check_dependencies() {
             missing="$missing $dep"
         fi
     done
+    
+    # 额外检查 coreutils 中的常用命令
+    for cmd in md5sum sha256sum; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            missing="$missing $cmd"
+        fi
+    done
+    
+    # 额外检查 findutils 中的 find 命令
+    if ! command -v "find" >/dev/null 2>&1; then
+        missing="$missing find"
+    fi
     
     if [ -n "$missing" ]; then
         echo "缺少依赖: $missing"
@@ -234,15 +246,19 @@ check_dependencies() {
         elif [ -f /etc/debian_version ]; then
             echo "检测到 Debian/Ubuntu 系统，使用 apt 安装"
             apt-get update -y
-            apt-get install -y $missing || { echo "依赖安装失败!"; exit 1; }
+            # 在 Debian/Ubuntu 中，md5sum/sha256sum 在 coreutils 包，find 在 findutils 包
+            apt-get install -y $missing coreutils findutils 2>/dev/null || {
+                # 如果 coreutils/findutils 已经安装，只安装缺失的其他包
+                apt-get install -y $missing || { echo "依赖安装失败!"; exit 1; }
+            }
         
         elif [ -f /etc/redhat-release ] || [ -f /etc/centos-release ]; then
             if command -v dnf >/dev/null 2>&1; then
                 echo "检测到 RHEL/CentOS/Fedora 系统，使用 dnf 安装"
-                dnf install -y $missing || { echo "依赖安装失败!"; exit 1; }
+                dnf install -y $missing coreutils findutils || { echo "依赖安装失败!"; exit 1; }
             else
                 echo "检测到 RHEL/CentOS 系统，使用 yum 安装"
-                yum install -y $missing || { echo "依赖安装失败!"; exit 1; }
+                yum install -y $missing coreutils findutils || { echo "依赖安装失败!"; exit 1; }
             fi
         
         else
