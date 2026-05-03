@@ -27,7 +27,7 @@ SPLIT_SUFFIX=".jpg" #加密文件后缀名
 ZSTD_LEVEL="3" # ZSTD压缩等级
 COMPRESS_SPEED="250M" # 压缩速度
 USER_AGENT="123pan/v2.5.5(Android 13;Xiaomi Mi Max 2)" # 客户端UA伪装
-BACKUP_PREFIX="_backup_"  # 备份名前缀配置参数
+BACKUP_PREFIX="特殊图片和视频_backup_"  # 备份名前缀配置参数
 AUTO_UPLOAD="true"  # 设置为 (true/false) 来设置是否自动上传备份到网盘
 
 # 清理临时文件函数
@@ -319,24 +319,28 @@ check_rclone_config() {
     fi
 }
 
-# 函数: 使用dd分割文件（自定义后缀）
+# 函数: 使用dd分割文件（自定义后缀，去除.aes）
 split_with_dd() {
     local input_file="$1"
     local output_prefix="$2"
     local chunk_size="$3"
     local suffix="$4"
     
+    # 去掉output_prefix中的.aes后缀（如果有的话）
+    # 这样生成的文件名就不会包含.aes了
+    local clean_prefix="${output_prefix%.aes}"
+    
     # 获取文件总大小(字节)
     local total_size=$(wc -c < "$input_file")
     local block_size=$(echo "$chunk_size" | awk '/[0-9]$/{print $1; next} /k$/{print $1*1024; next} /M$/{print $1*1024*1024; next} /G$/{print $1*1024*1024*1024; next}')
     
     # 清空可能存在的旧分割文件
-    rm -f "${output_prefix}."[0-9][0-9][0-9]"${suffix}"
-    rm -f "${output_prefix}${suffix}"
+    rm -f "${clean_prefix}."[0-9][0-9][0-9]"${suffix}"
+    rm -f "${clean_prefix}${suffix}"
     
     # 检查是否需要分割
     if [ $total_size -le $block_size ]; then
-        local output_file="${output_prefix}${suffix}"
+        local output_file="${clean_prefix}${suffix}"
         cp "$input_file" "$output_file" || { echo "创建单文件失败"; return 1; }
         echo "文件小于分割大小，已创建单文件: $output_file"
         return 0
@@ -347,7 +351,7 @@ split_with_dd() {
     
     # 循环分割文件
     while [ $offset -lt $total_size ]; do
-        local output_file="${output_prefix}.$(printf "%03d" $count)${suffix}"
+        local output_file="${clean_prefix}.$(printf "%03d" $count)${suffix}"
         dd if="$input_file" of="$output_file" bs="$block_size" skip=$((count-1)) count=1 2>/dev/null || {
             echo "分割文件失败"; return 1
         }
@@ -375,7 +379,7 @@ verify_split_files() {
         (cd "$backup_dir" && md5sum -c checksums.md5 2>/dev/null > "$md5_result_file")
         
         # 按数字顺序排序并显示结果，去除路径中的 ./
-        grep -E "\.aes(\.[0-9]+)?${SPLIT_SUFFIX}" "$md5_result_file" | \
+        grep -E "(${SPLIT_SUFFIX})" "$md5_result_file" | \
         sort -V | \
         while read -r line; do
             # 提取文件名并去除可能的路径前缀
@@ -401,7 +405,7 @@ verify_split_files() {
         local sha_result_file=$(mktemp)
         (cd "$backup_dir" && sha256sum -c checksums.sha256 2>/dev/null > "$sha_result_file")
         
-        grep -E "\.aes(\.[0-9]+)?${SPLIT_SUFFIX}" "$sha_result_file" | \
+        grep -E "(${SPLIT_SUFFIX})" "$sha_result_file" | \
         sort -V | \
         while read -r line; do
             local file=$(echo "$line" | awk -F: '{print $1}' | sed 's|^\./||;s|^\./\./||')
@@ -488,7 +492,7 @@ perform_backup() {
     split_with_dd "$enc_file" "$enc_file" "$SPLIT_SIZE" "$SPLIT_SUFFIX" || {
         echo "文件分割失败!"; return 1
     }
-    [ -f "${enc_file}${SPLIT_SUFFIX}" ] || rm -f "$enc_file"
+    [ -f "${enc_file%.aes}${SPLIT_SUFFIX}" ] || rm -f "$enc_file"
     
     # 校验文件
     echo "正在创建校验文件..."
@@ -636,7 +640,8 @@ perform_restore() {
         
         # 网盘还原模式
         backup_dir="${TEMP_DIR}/${backup_name}"
-        backup_prefix="${backup_dir}/${backup_name}.aes"
+        # 使用不带.aes的前缀
+        backup_prefix="${backup_dir}/${backup_name}"
         
         echo "从网盘下载备份文件: ${backup_name} (密码: ${PASSWORD:0:2}****)"
         mkdir -p "$backup_dir"
@@ -651,9 +656,16 @@ perform_restore() {
             --user-agent "$USER_AGENT" 2>/dev/null || { echo "下载失败!"; exit 1; }
         fi
         
+        # 检查分割文件（不带.aes）
         if ! ls "${backup_prefix}."[0-9][0-9][0-9]"${SPLIT_SUFFIX}" >/dev/null 2>&1 && \
-           [ ! -f "$backup_prefix" ]; then
-            echo "找不到备份文件"; exit 1
+           [ ! -f "${backup_prefix}${SPLIT_SUFFIX}" ]; then
+            # 如果没找到，尝试带.aes的旧格式
+            backup_prefix="${backup_dir}/${backup_name}.aes"
+            if ! ls "${backup_prefix}."[0-9][0-9][0-9]"${SPLIT_SUFFIX}" >/dev/null 2>&1 && \
+               [ ! -f "${backup_prefix}${SPLIT_SUFFIX}" ]; then
+                echo "找不到备份文件"; exit 1
+            fi
+            echo "检测到旧格式备份文件（含.aes）"
         fi
         
         # 在合并前校验文件
@@ -662,11 +674,35 @@ perform_restore() {
         # 本地还原模式
         if echo "$backup_arg" | grep -q '^[0-9]\+$'; then
             backup_dir="${BACKUP_DIR}/${backup_name}"
-            backup_prefix="${backup_dir}/${backup_name}.aes"
+            # 使用不带.aes的前缀
+            backup_prefix="${backup_dir}/${backup_name}"
         else
             backup_prefix="$backup_arg"
             backup_dir=$(dirname "$backup_prefix")
+            # 从输入路径中提取基础名称（去除.aes后缀如果有的话）
             backup_name=$(basename "$backup_prefix" .aes)
+            # 如果输入不带.aes，直接使用basename
+            if [ "$backup_name" = "$(basename "$backup_prefix")" ]; then
+                backup_name=$(basename "$backup_prefix")
+            fi
+        fi
+        
+        # 检查分割文件（先查新格式，再查旧格式）
+        if ! ls "${backup_prefix}."[0-9][0-9][0-9]"${SPLIT_SUFFIX}" >/dev/null 2>&1 && \
+           [ ! -f "${backup_prefix}${SPLIT_SUFFIX}" ]; then
+            # 尝试旧格式
+            if [ "$backup_prefix" != "${backup_prefix}.aes" ]; then
+                old_prefix="${backup_prefix}.aes"
+                if ls "${old_prefix}."[0-9][0-9][0-9]"${SPLIT_SUFFIX}" >/dev/null 2>&1 || \
+                   [ -f "${old_prefix}${SPLIT_SUFFIX}" ]; then
+                    echo "检测到旧格式备份文件（含.aes），兼容处理中..."
+                    backup_prefix="$old_prefix"
+                else
+                    echo "找不到备份文件"; exit 1
+                fi
+            else
+                echo "找不到备份文件"; exit 1
+            fi
         fi
         
         # 在合并前校验文件
@@ -683,9 +719,9 @@ perform_restore() {
         for part in $(ls -1 "${backup_prefix}."[0-9][0-9][0-9]"${SPLIT_SUFFIX}" | sort -t. -k3 -n); do
             cat "$part" >> "$enc_file" || { echo "合并失败"; exit 1; }
         done
-    elif [ -f "${backup_prefix}" ]; then
+    elif [ -f "${backup_prefix}${SPLIT_SUFFIX}" ]; then
         echo "使用未分割的完整备份文件"
-        cp "$backup_prefix" "$enc_file" || { echo "复制失败"; exit 1; }
+        cp "${backup_prefix}${SPLIT_SUFFIX}" "$enc_file" || { echo "复制失败"; exit 1; }
     else
         echo "找不到备份文件"; exit 1
     fi
