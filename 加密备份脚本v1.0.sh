@@ -15,9 +15,9 @@ set -e
 
 # 配置参数
 TARGET_DIR="" # 默认备份路径
-BACKUP_DIR="/backups" # 加密备份存储路径
+BACKUP_DIR="/home/backups" # 加密备份存储路径
 RESTORE_DIR="/data/webdav/restored"  # 默认恢复路径
-TEMP_DIR="/backups/tmp" # 临时文件处理路径
+TEMP_DIR="/home/backups/tmp" # 临时文件处理路径
 PASSWORD="" # 默认密码
 RCLONE_REMOTE="123pan" # 网盘存储名称
 RCLONE_PATH="/123pan" # 网盘存储路径
@@ -29,6 +29,136 @@ COMPRESS_SPEED="250M" # 压缩速度
 USER_AGENT="123pan/v2.5.5(Android 13;Xiaomi Mi Max 2)" # 客户端UA伪装
 BACKUP_PREFIX="特殊图片和视频_backup_"  # 备份名前缀配置参数
 AUTO_UPLOAD="true"  # 设置为 (true/false) 来设置是否自动上传备份到网盘
+OBFUSCATE_HEADER="true" # 是否混淆001文件头 (true/false)
+FAKE_FILE_HEADER="\xFF\xD8\xFF\xE1\x03\x41\x45\x78\x69\x66\x00\x00\x4D\x4D\x00\x2A"  #文件头混淆
+
+# ============================================================
+# 文件头混淆相关函数（偏移量存储方案）
+# ============================================================
+
+# 函数: 将原始文件头附加到文件末尾并替换为JPEG头
+obfuscate_001_header() {
+    local target_file="$1"
+    
+    if [ ! -f "$target_file" ]; then
+        echo "错误: 目标文件不存在: $target_file"
+        return 1
+    fi
+    
+    echo "[混淆] 正在处理: $(basename "$target_file")"
+    
+    # 用 head 读取原始前16字节，速度远快于 dd
+    local original_header=$(head -c 16 "$target_file" | xxd -p | tr -d '\n')
+    if [ ${#original_header} -ne 32 ]; then
+        echo "错误: 无法读取原始文件头 (读取到 ${#original_header} 字符)"
+        return 1
+    fi
+    
+    # 检查是否已经被混淆过
+    local first_two=$(echo "$original_header" | cut -c1-4)
+    if [ "$first_two" = "ffd8" ]; then
+        echo "[混淆] 文件已是JPEG头，跳过混淆"
+        return 0
+    fi
+    
+    # 记录当前文件大小
+    local orig_size=$(wc -c < "$target_file")
+    
+    # 写入JPEG伪装头（16字节）
+    # FF D8 FF E0 00 10 4A 46 49 46 00 01 01 00 00 01
+    printf "$FAKE_FILE_HEADER" | \
+    dd of="$target_file" bs=16 count=1 conv=notrunc 2>/dev/null || {
+        echo "错误: 写入伪装文件头失败"
+        return 1
+    }
+    
+    # 在文件末尾追加：原始头(16字节) + 偏移量(8字节小端) + OBFS(4字节)
+    # 用 printf 直接写入二进制，一次IO完成
+    local offset_le=$(printf '%016x' "$orig_size" | sed 's/\(..\)\(..\)\(..\)\(..\)\(..\)\(..\)\(..\)\(..\)/\8\7\6\5\4\3\2\1/')
+    printf '%b' "$(echo "$original_header" | sed 's/\(..\)/\\x\1/g')" >> "$target_file"
+    printf '%b' "$(echo "$offset_le" | sed 's/\(..\)/\\x\1/g')" >> "$target_file"
+    printf 'OBFS' >> "$target_file"
+    
+    echo "[混淆] 完成: 原始头+偏移量已嵌入文件末尾 (28字节尾部数据)"
+    return 0
+}
+
+# 函数: 从文件末尾提取原始头并还原
+restore_001_header() {
+    local target_file="$1"
+    
+    if [ ! -f "$target_file" ]; then
+        echo "错误: 目标文件不存在: $target_file"
+        return 1
+    fi
+    
+    # 用 tail 读取末尾4字节魔术标记，速度极快
+    local magic=$(tail -c 4 "$target_file")
+    if [ "$magic" != "OBFS" ]; then
+        echo "[还原] 未找到混淆标记，文件可能未混淆或已还原"
+        return 0
+    fi
+    
+    echo "[还原] 检测到混淆标记，正在还原: $(basename "$target_file")"
+    
+    # 用 tail 一次性读取末尾28字节
+    local tail_data=$(tail -c 28 "$target_file" | xxd -p | tr -d '\n')
+    
+    if [ ${#tail_data} -ne 56 ]; then
+        echo "错误: 无法读取尾部数据 (读取到 ${#tail_data} 字符)"
+        return 1
+    fi
+    
+    # 提取原始头（前32字符 = 16字节）
+    local original_header=$(echo "$tail_data" | cut -c1-32)
+    
+    # 提取偏移量（接下来16字符 = 8字节，小端序）
+    local offset_le=$(echo "$tail_data" | cut -c33-48)
+    # 小端转大端：逐字节反转
+    local orig_size=0
+    local i
+    for i in 14 12 10 8 6 4 2 0; do
+        local byte=$(echo "$offset_le" | cut -c$((i+1))-$((i+2)))
+        orig_size=$((orig_size * 256 + 16#$byte))
+    done
+    
+    # 验证偏移量合理性
+    local file_size=$(wc -c < "$target_file")
+    if [ "$orig_size" -lt 16 ] || [ "$orig_size" -gt "$file_size" ]; then
+        echo "错误: 偏移量异常 ($orig_size)，文件可能已损坏"
+        return 1
+    fi
+    
+    # 写入原始头（一次性16字节）
+    printf '%b' "$(echo "$original_header" | sed 's/\(..\)/\\x\1/g')" | \
+    dd of="$target_file" bs=16 count=1 conv=notrunc 2>/dev/null || {
+        echo "错误: 还原文件头失败"
+        return 1
+    }
+    
+    # 截断文件，去掉末尾28字节（用 head 比 dd 截断快得多）
+    local new_size=$((file_size - 28))
+    head -c "$new_size" "$target_file" > "${target_file}.tmp" && \
+    mv "${target_file}.tmp" "$target_file" || {
+        echo "错误: 截断文件失败"
+        return 1
+    }
+    
+    echo "[还原] 完成: 原始头已恢复，尾部数据已移除"
+    return 0
+}
+
+# 函数: 检查文件是否已被混淆
+is_obfuscated() {
+    local target_file="$1"
+    [ ! -f "$target_file" ] && return 1
+    [ $(wc -c < "$target_file") -lt 44 ] && return 1
+    [ "$(tail -c 4 "$target_file")" = "OBFS" ]
+}
+
+# ============================================================
+# 原有函数
+# ============================================================
 
 # 清理临时文件函数
 cleanup() {
@@ -75,6 +205,12 @@ show_examples() {
     echo ""
     echo "8. 显示帮助:"
     echo "   $0 -h"
+    echo ""
+    echo "文件头混淆说明:"
+    echo "  - 001文件(或单文件)的OpenSSL头(Salted__)会被替换为JPEG头"
+    echo "  - 原始16字节头+偏移量嵌在文件末尾(28字节尾部)"
+    echo "  - 还原时自动检测并恢复原始头"
+    echo "  - 可通过 OBFUSCATE_HEADER 变量开关此功能"
     exit 0
 }
 
@@ -191,6 +327,9 @@ get_backup_by_index() {
         local yun_index=$((index - local_count))
         echo "$yun_backups" | sed -n "${yun_index}p" | cut -d' ' -f1
     fi
+
+    # 去除尾部的斜杠
+    echo "$result" | sed 's:/$::'
 }
 
 # 函数: 自动判断备份位置
@@ -202,6 +341,9 @@ determine_backup_location() {
         backup_name=$(get_backup_by_index "$backup_arg")
         [ -z "$backup_name" ] && { echo "无效的序号: $backup_arg"; exit 1; }
         
+        # 去除尾部的斜杠
+        backup_name=$(echo "$backup_name" | sed 's:/$::')
+
         # 检查是本地还是网盘
         if [ -d "${BACKUP_DIR}/${backup_name}" ]; then
             echo "local"
@@ -228,7 +370,7 @@ determine_backup_location() {
 
 # 函数: 检查并安装依赖
 check_dependencies() {
-    local dependencies="tar zstd pv rclone jq openssl"
+    local dependencies="tar zstd pv rclone jq openssl xxd"
     local missing=""
     
     for dep in $dependencies; do
@@ -238,7 +380,7 @@ check_dependencies() {
     done
     
     # 额外检查 coreutils 中的常用命令
-    for cmd in md5sum sha256sum; do
+    for cmd in md5sum sha256sum dd stat; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             missing="$missing $cmd"
         fi
@@ -327,7 +469,6 @@ split_with_dd() {
     local suffix="$4"
     
     # 去掉output_prefix中的.aes后缀（如果有的话）
-    # 这样生成的文件名就不会包含.aes了
     local clean_prefix="${output_prefix%.aes}"
     
     # 获取文件总大小(字节)
@@ -374,21 +515,17 @@ verify_split_files() {
         echo "警告: 找不到MD5校验文件，跳过MD5校验"
     else
         echo "正在进行MD5校验:"
-        # 使用临时文件存储校验结果
         local md5_result_file=$(mktemp)
         (cd "$backup_dir" && md5sum -c checksums.md5 2>/dev/null > "$md5_result_file")
         
-        # 按数字顺序排序并显示结果，去除路径中的 ./
         grep -E "(${SPLIT_SUFFIX})" "$md5_result_file" | \
         sort -V | \
         while read -r line; do
-            # 提取文件名并去除可能的路径前缀
             local file=$(echo "$line" | awk -F: '{print $1}' | sed 's|^\./||;s|^\./\./||')
             local status=$(echo "$line" | cut -d: -f2-)
             printf "  %-40s %s\n" "$file" "$status"
         done
         
-        # 检查是否有失败项
         if grep -q "FAILED" "$md5_result_file"; then
             rm -f "$md5_result_file"
             echo "错误: MD5校验失败"
@@ -494,9 +631,39 @@ perform_backup() {
     }
     [ -f "${enc_file%.aes}${SPLIT_SUFFIX}" ] || rm -f "$enc_file"
     
-    # 校验文件
+    # ============================================================
+    # 新增：001文件头混淆（偏移量存储方案）
+    # ============================================================
+    if [ "$OBFUSCATE_HEADER" = "true" ]; then
+        local clean_prefix="${enc_file%.aes}"
+        local file_001="${clean_prefix}.001${SPLIT_SUFFIX}"
+        
+        if [ -f "$file_001" ]; then
+            # 有分片，混淆001
+            obfuscate_001_header "$file_001" || {
+                echo "001文件头混淆失败!"
+                return 1
+            }
+        else
+            # 没有分片（文件小于分割大小），检查单文件
+            local single_file="${clean_prefix}${SPLIT_SUFFIX}"
+            if [ -f "$single_file" ]; then
+                echo "[混淆] 文件未分割，直接混淆单文件头..."
+                obfuscate_001_header "$single_file" || {
+                    echo "单文件头混淆失败!"
+                    return 1
+                }
+            fi
+        fi
+        echo "[混淆] 文件头混淆处理完成"
+    else
+        echo "[混淆] 文件头混淆已禁用 (OBFUSCATE_HEADER=false)"
+    fi
+    
+    # 校验文件（针对混淆后的文件生成校验和）
     echo "正在创建校验文件..."
     ( cd "$backup_folder" && \
+      rm -f checksums.md5 checksums.sha256 && \
       for f in *; do
           [ "$f" != "checksums.md5" ] && [ "$f" != "checksums.sha256" ] && \
           md5sum "$f" >> checksums.md5 2>/dev/null
@@ -637,10 +804,11 @@ perform_restore() {
             echo "错误: 网盘未配置，无法从网盘还原"
             exit 1
         fi
-        
+        # 去除backup_name尾部的斜杠
+        backup_name=$(echo "$backup_name" | sed 's:/$::')
+
         # 网盘还原模式
         backup_dir="${TEMP_DIR}/${backup_name}"
-        # 使用不带.aes的前缀
         backup_prefix="${backup_dir}/${backup_name}"
         
         echo "从网盘下载备份文件: ${backup_name} (密码: ${PASSWORD:0:2}****)"
@@ -656,10 +824,9 @@ perform_restore() {
             --user-agent "$USER_AGENT" 2>/dev/null || { echo "下载失败!"; exit 1; }
         fi
         
-        # 检查分割文件（不带.aes）
+        # 检查分割文件
         if ! ls "${backup_prefix}."[0-9][0-9][0-9]"${SPLIT_SUFFIX}" >/dev/null 2>&1 && \
            [ ! -f "${backup_prefix}${SPLIT_SUFFIX}" ]; then
-            # 如果没找到，尝试带.aes的旧格式
             backup_prefix="${backup_dir}/${backup_name}.aes"
             if ! ls "${backup_prefix}."[0-9][0-9][0-9]"${SPLIT_SUFFIX}" >/dev/null 2>&1 && \
                [ ! -f "${backup_prefix}${SPLIT_SUFFIX}" ]; then
@@ -667,30 +834,23 @@ perform_restore() {
             fi
             echo "检测到旧格式备份文件（含.aes）"
         fi
-        
-        # 在合并前校验文件
-        verify_split_files "$backup_dir" "$backup_name" || { echo "文件校验失败，无法继续还原"; exit 1; }
     else
         # 本地还原模式
         if echo "$backup_arg" | grep -q '^[0-9]\+$'; then
             backup_dir="${BACKUP_DIR}/${backup_name}"
-            # 使用不带.aes的前缀
             backup_prefix="${backup_dir}/${backup_name}"
         else
             backup_prefix="$backup_arg"
             backup_dir=$(dirname "$backup_prefix")
-            # 从输入路径中提取基础名称（去除.aes后缀如果有的话）
             backup_name=$(basename "$backup_prefix" .aes)
-            # 如果输入不带.aes，直接使用basename
             if [ "$backup_name" = "$(basename "$backup_prefix")" ]; then
                 backup_name=$(basename "$backup_prefix")
             fi
         fi
         
-        # 检查分割文件（先查新格式，再查旧格式）
+        # 检查分割文件
         if ! ls "${backup_prefix}."[0-9][0-9][0-9]"${SPLIT_SUFFIX}" >/dev/null 2>&1 && \
            [ ! -f "${backup_prefix}${SPLIT_SUFFIX}" ]; then
-            # 尝试旧格式
             if [ "$backup_prefix" != "${backup_prefix}.aes" ]; then
                 old_prefix="${backup_prefix}.aes"
                 if ls "${old_prefix}."[0-9][0-9][0-9]"${SPLIT_SUFFIX}" >/dev/null 2>&1 || \
@@ -704,24 +864,86 @@ perform_restore() {
                 echo "找不到备份文件"; exit 1
             fi
         fi
-        
-        # 在合并前校验文件
-        verify_split_files "$backup_dir" "$backup_name" || { echo "文件校验失败，无法继续还原"; exit 1; }
     fi
 
     mkdir -p "$TEMP_DIR"
 
-    # 处理加密文件
+    # ============================================================
+    # 检查是否需要还原001文件头（决定是否跳过校验）
+    # ============================================================
+    local backup_prefix_noext="${backup_prefix%.aes}"
+    
+    local file_001=""
+    [ -f "${backup_prefix_noext}.001${SPLIT_SUFFIX}" ] && file_001="${backup_prefix_noext}.001${SPLIT_SUFFIX}"
+    [ -z "$file_001" ] && [ -f "${backup_prefix}.001${SPLIT_SUFFIX}" ] && file_001="${backup_prefix}.001${SPLIT_SUFFIX}"
+    
+    local need_restore=false
+    if [ -n "$file_001" ] && [ -f "$file_001" ]; then
+        if is_obfuscated "$file_001"; then
+            need_restore=true
+        fi
+    else
+        # 检查单文件情况
+        local single_file=""
+        [ -f "${backup_prefix_noext}${SPLIT_SUFFIX}" ] && single_file="${backup_prefix_noext}${SPLIT_SUFFIX}"
+        [ -z "$single_file" ] && [ -f "${backup_prefix}${SPLIT_SUFFIX}" ] && single_file="${backup_prefix}${SPLIT_SUFFIX}"
+        
+        if [ -n "$single_file" ] && [ -f "$single_file" ] && is_obfuscated "$single_file"; then
+            need_restore=true
+        fi
+    fi
+
+    # ============================================================
+    # 仅首次还原时校验（001仍是混淆状态，与生成校验和时一致）
+    # 已经还原过的跳过校验
+    # ============================================================
+    if [ "$need_restore" = true ]; then
+        echo "[校验] 检测到001文件仍为混淆状态，执行完整性校验..."
+        verify_split_files "$backup_dir" "$backup_name" || { echo "文件校验失败，无法继续还原"; exit 1; }
+    else
+        echo "[校验] 001文件已还原或无混淆，跳过校验"
+    fi
+
+    # ============================================================
+    # 还原001文件头（仅在需要时）
+    # ============================================================
+    if [ "$need_restore" = true ] && [ -n "$file_001" ] && [ -f "$file_001" ]; then
+        echo "[还原] 校验通过，正在还原001文件头..."
+        restore_001_header "$file_001" || {
+            echo "错误: 还原001文件头失败!"
+            exit 1
+        }
+        echo "[还原] 001文件头还原完成"
+    elif [ "$need_restore" = true ] && [ -n "$single_file" ] && [ -f "$single_file" ]; then
+        echo "[还原] 校验通过，正在还原单文件头..."
+        restore_001_header "$single_file" || {
+            echo "错误: 还原文件头失败!"
+            exit 1
+        }
+        echo "[还原] 单文件头还原完成"
+    fi
+
+    # ============================================================
+    # 合并分割文件
+    # ============================================================
     enc_file="${TEMP_DIR}/${backup_name}.aes"
-    if ls "${backup_prefix}."[0-9][0-9][0-9]"${SPLIT_SUFFIX}" >/dev/null 2>&1; then
+    if ls "${backup_prefix}."[0-9][0-9][0-9]"${SPLIT_SUFFIX}" >/dev/null 2>&1 || \
+       ls "${backup_prefix_noext}."[0-9][0-9][0-9]"${SPLIT_SUFFIX}" >/dev/null 2>&1; then
         echo "正在合并分割文件..."
         : > "$enc_file"
-        for part in $(ls -1 "${backup_prefix}."[0-9][0-9][0-9]"${SPLIT_SUFFIX}" | sort -t. -k3 -n); do
+        # 确定使用哪个前缀
+        local merge_prefix="$backup_prefix"
+        [ ! -f "${merge_prefix}.001${SPLIT_SUFFIX}" ] && merge_prefix="$backup_prefix_noext"
+        
+        for part in $(ls -1 "${merge_prefix}."[0-9][0-9][0-9]"${SPLIT_SUFFIX}" | sort -t. -k3 -n); do
             cat "$part" >> "$enc_file" || { echo "合并失败"; exit 1; }
         done
     elif [ -f "${backup_prefix}${SPLIT_SUFFIX}" ]; then
         echo "使用未分割的完整备份文件"
         cp "${backup_prefix}${SPLIT_SUFFIX}" "$enc_file" || { echo "复制失败"; exit 1; }
+    elif [ -f "${backup_prefix_noext}${SPLIT_SUFFIX}" ]; then
+        echo "使用未分割的完整备份文件"
+        cp "${backup_prefix_noext}${SPLIT_SUFFIX}" "$enc_file" || { echo "复制失败"; exit 1; }
     else
         echo "找不到备份文件"; exit 1
     fi
@@ -747,7 +969,10 @@ perform_restore() {
     echo "还原成功! 文件已恢复到: $restore_to"
 }
 
+# ============================================================
 # 主程序
+# ============================================================
+
 # 首先处理密码参数
 handle_password_option "$@"
 
@@ -807,20 +1032,16 @@ while [ $# -gt 0 ]; do
             ;;
         -up)
             shift
-            # 检查网盘配置
             if ! check_rclone_available; then
                 echo "错误: 网盘未配置，无法上传"
                 echo "请先运行 'rclone config' 配置远程存储"
                 exit 1
             fi
             
-            # 检查是否提供了目录参数
             if [ $# -gt 0 ] && [ -d "$1" ]; then
-                # 使用了指定的目录
                 dir_to_upload="$1"
                 shift
             else
-                # 没有提供目录或提供的不是有效目录，自动查找最新的备份目录
                 echo "未指定有效目录，自动查找最新备份..."
                 latest_backup=$(find "$BACKUP_DIR" -maxdepth 1 -type d -name "${BACKUP_PREFIX}*" | grep -v "$TEMP_DIR" | sort -r | head -n 1)
                 
@@ -837,20 +1058,17 @@ while [ $# -gt 0 ]; do
             backup_name=$(basename "$dir_to_upload")
             echo "[$(date +'%Y-%m-%d %H:%M:%S')] 开始上传备份: $backup_name"
             
-            # 检查目录是否为空
             if [ -z "$(ls -A "$dir_to_upload" 2>/dev/null)" ]; then
                 echo "错误: 备份目录为空: $dir_to_upload"
                 exit 1
             fi
             
-            # 显示目录内容
             echo "目录内容:"
             ls -lh "$dir_to_upload" | head -10
             if [ "$(ls -1 "$dir_to_upload" | wc -l)" -gt 10 ]; then
                 echo "... 还有 $(($(ls -1 "$dir_to_upload" | wc -l) - 10)) 个文件"
             fi
             
-            # 直接上传已有备份目录
             echo "正在上传到网盘..."
             if rclone mkdir "${RCLONE_REMOTE}:${RCLONE_PATH%/}/${backup_name}" 2>/dev/null; then
                 echo "创建远程目录成功"
@@ -879,7 +1097,6 @@ while [ $# -gt 0 ]; do
             dir_to_backup="$1"
             shift
             
-            # 检查是否包含 -up 参数
             upload_after_backup="false"
             if [ "$1" = "-up" ]; then
                 upload_after_backup="true"
