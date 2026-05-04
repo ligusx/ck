@@ -4,33 +4,33 @@ set -e
 # 整合备份与还原脚本（兼容ash版本）
 # 使用说明:
 # 1. 备份模式: ./backup_restore.sh
-# 2. 本地还原: ./backup_restore.sh -r /backups/backup_20240101_120000/backup_20240101_120000.aes [-to /path/to/restore] [-pwd 密码]
-# 3. 网盘还原: ./backup_restore.sh -r backup_20240101_120000 [-to /path/to/restore] [-pwd 密码]
+# 2. 本地还原: ./backup_restore.sh -r /backups/backup_20240101_120000/backup_20240101_120000.aes [-to /path/to/restore] [-pwd]
+# 3. 网盘还原: ./backup_restore.sh -r backup_20240101_120000 [-to /path/to/restore] [-pwd]
 # 4. 显示备份列表: ./backup_restore.sh -list
 # 5. 显示帮助: ./backup_restore.sh -h
-# 6. 手动上传指定目录: ./backup_restore.sh -up /path/to/directory [-pwd 密码]
+# 6. 手动上传指定目录: ./backup_restore.sh -up /path/to/directory [-pwd]
 # 7. 删除备份: ./backup_restore.sh -del [序号]
-# 8. 自定义密码: 在任何命令后添加 -pwd [密码]
-# 9. 备份指定目录并上传: ./backup_restore.sh -sd /path/to/directory [-pwd 密码] [-up]
+# 8. 自定义密码: 添加 -pwd 参数进入交互式安全输入
+# 9. 备份指定目录并上传: ./backup_restore.sh -sd /path/to/directory [-pwd] [-up]
 
 # 配置参数
 TARGET_DIR="" # 默认备份路径
 BACKUP_DIR="/home/backups" # 加密备份存储路径
 RESTORE_DIR="/data/webdav/restored"  # 默认恢复路径
 TEMP_DIR="/home/backups/tmp" # 临时文件处理路径
-PASSWORD="" # 默认密码
+PASSWORD="" # 默认密码（不带 -pwd 参数时使用）
 RCLONE_REMOTE="123pan" # 网盘存储名称
 RCLONE_PATH="/123pan" # 网盘存储路径
 KEEP_LATEST="3" # 保留加密文件份数
 SPLIT_SIZE="100M" #默认加密文件分割大小
-SPLIT_SUFFIX=".jpg" #加密文件后缀名
+SPLIT_SUFFIX=".zip" #加密文件后缀名
 ZSTD_LEVEL="3" # ZSTD压缩等级
 COMPRESS_SPEED="250M" # 压缩速度
 USER_AGENT="123pan/v2.5.5(Android 13;Xiaomi Mi Max 2)" # 客户端UA伪装
 BACKUP_PREFIX="特殊图片和视频_backup_"  # 备份名前缀配置参数
 AUTO_UPLOAD="true"  # 设置为 (true/false) 来设置是否自动上传备份到网盘
 OBFUSCATE_HEADER="true" # 是否混淆001文件头 (true/false)
-FAKE_FILE_HEADER="\xFF\xD8\xFF\xE1\x03\x41\x45\x78\x69\x66\x00\x00\x4D\x4D\x00\x2A"  #文件头混淆
+FAKE_FILE_HEADER="\x50\x4B\x03\x04\x14\x00\x00\x08\08\x00\x3A\x18\x9D\x5C\x6F\x20"  #文件头混淆
 
 # ============================================================
 # 文件头混淆相关函数（偏移量存储方案）
@@ -65,7 +65,6 @@ obfuscate_001_header() {
     local orig_size=$(wc -c < "$target_file")
     
     # 写入JPEG伪装头（16字节）
-    # FF D8 FF E0 00 10 4A 46 49 46 00 01 01 00 00 01
     printf "$FAKE_FILE_HEADER" | \
     dd of="$target_file" bs=16 count=1 conv=notrunc 2>/dev/null || {
         echo "错误: 写入伪装文件头失败"
@@ -73,7 +72,6 @@ obfuscate_001_header() {
     }
     
     # 在文件末尾追加：原始头(16字节) + 偏移量(8字节小端) + OBFS(4字节)
-    # 用 printf 直接写入二进制，一次IO完成
     local offset_le=$(printf '%016x' "$orig_size" | sed 's/\(..\)\(..\)\(..\)\(..\)\(..\)\(..\)\(..\)\(..\)/\8\7\6\5\4\3\2\1/')
     printf '%b' "$(echo "$original_header" | sed 's/\(..\)/\\x\1/g')" >> "$target_file"
     printf '%b' "$(echo "$offset_le" | sed 's/\(..\)/\\x\1/g')" >> "$target_file"
@@ -160,11 +158,42 @@ is_obfuscated() {
 # 原有函数
 # ============================================================
 
+# 函数: 以安全交互方式输入密码
+get_password_interactively() {
+    local password1 password2
+    
+    echo -n "请输入密码: "
+    stty -echo 2>/dev/null || true
+    read -r password1
+    stty echo 2>/dev/null || true
+    echo
+    
+    if [ -z "$password1" ]; then
+        echo "错误: 密码不能为空"
+        exit 1
+    fi
+    
+    echo -n "请再次输入密码以确认: "
+    stty -echo 2>/dev/null || true
+    read -r password2
+    stty echo 2>/dev/null || true
+    echo
+    
+    if [ "$password1" != "$password2" ]; then
+        echo "错误: 两次输入的密码不一致"
+        exit 1
+    fi
+    
+    PASSWORD="$password1"
+    echo "[*] 密码已安全设置。"
+}
+
 # 清理临时文件函数
 cleanup() {
     [ -n "$args_file" ] && rm -f "$args_file"
     [ -n "$local_backups_file" ] && rm -f "$local_backups_file"
     [ -n "$yun_backups_file" ] && rm -f "$yun_backups_file"
+    [ -n "$PASSWORD" ] && unset PASSWORD
 }
 trap cleanup EXIT
 
@@ -180,31 +209,39 @@ check_rclone_available() {
 # 函数: 显示示例命令
 show_examples() {
     echo "示例命令:"
-    echo "1. 执行备份:"
-    echo "   $0 [-pwd 密码]"
+    echo "1. 执行备份（使用默认密码）:"
+    echo "   $0"
     echo ""
-    echo "2. 从本地备份还原:"
-    echo "   $0 -r $BACKUP_DIR/${BACKUP_PREFIX}20240101_120000/${BACKUP_PREFIX}20240101_120000.aes [-to /custom/restore/path] [-pwd 密码]"
+    echo "2. 执行备份（交互式输入密码）:"
+    echo "   $0 -pwd"
+    echo ""
+    echo "3. 从本地备份还原:"
+    echo "   $0 -r $BACKUP_DIR/${BACKUP_PREFIX}20240101_120000/${BACKUP_PREFIX}20240101_120000.aes [-to /custom/restore/path] [-pwd]"
     echo "   或使用序号: $0 -r 1 [-to /custom/restore/path]"
     echo ""
-    echo "3. 从网盘备份还原:"
-    echo "   $0 -r ${BACKUP_PREFIX}20240101_120000 [-to /custom/restore/path] [-pwd 密码]"
+    echo "4. 从网盘备份还原:"
+    echo "   $0 -r ${BACKUP_PREFIX}20240101_120000 [-to /custom/restore/path] [-pwd]"
     echo "   或使用序号: $0 -r 5 [-to /custom/restore/path]"
     echo ""
-    echo "4. 显示备份列表:"
+    echo "5. 显示备份列表:"
     echo "   $0 -list"
     echo ""
-    echo "5. 删除备份:"
+    echo "6. 删除备份:"
     echo "   $0 -del 1 (删除序号1的备份)"
     echo ""
-    echo "6. 手动上传指定目录:"
-    echo "   $0 -up /path/to/directory [-pwd 密码]"
+    echo "7. 手动上传指定目录:"
+    echo "   $0 -up /path/to/directory [-pwd]"
     echo ""
-    echo "7. 备份指定目录:"
-    echo "   $0 -sd /path/to/directory [-pwd 密码] [-up]"
+    echo "8. 备份指定目录:"
+    echo "   $0 -sd /path/to/directory [-pwd] [-up]"
     echo ""
-    echo "8. 显示帮助:"
+    echo "9. 显示帮助:"
     echo "   $0 -h"
+    echo ""
+    echo "密码说明:"
+    echo "  - 不带 -pwd 参数: 使用脚本内置默认密码"
+    echo "  - 带 -pwd 参数: 触发交互式安全输入（输入不可见）"
+    echo "  - 密码绝不会出现在命令行历史或进程列表中"
     echo ""
     echo "文件头混淆说明:"
     echo "  - 001文件(或单文件)的OpenSSL头(Salted__)会被替换为JPEG头"
@@ -217,28 +254,32 @@ show_examples() {
 # 函数: 显示用法
 show_usage() {
     echo "用法:"
-    echo "  $0 [-h] [-list] [-r 备份路径/序号] [-to 恢复路径] [-up 目录] [-del 序号] [-sd 目录] [-pwd 密码]"
+    echo "  $0 [-h] [-list] [-r 备份路径/序号] [-to 恢复路径] [-up 目录] [-del 序号] [-sd 目录] [-pwd]"
     show_examples
     exit 1
 }
 
 # 函数: 处理密码参数
 handle_password_option() {
+    local use_interactive=false
+    
     while [ $# -gt 0 ]; do
         case "$1" in
             -pwd)
-                if [ -z "$2" ]; then
-                    echo "错误: -pwd 参数需要指定密码"
-                    exit 1
-                fi
-                PASSWORD="$2"
-                shift 2
+                use_interactive=true
+                shift
                 ;;
             *)
                 shift
                 ;;
         esac
     done
+    
+    if [ "$use_interactive" = true ]; then
+        get_password_interactively
+    else
+        echo "[*] 使用默认密码"
+    fi
 }
 
 get_backup_list() {
@@ -599,7 +640,7 @@ perform_backup() {
     local backup_name="${2:-${BACKUP_PREFIX}$(date +"%Y%m%d_%H%M%S")}"
     local upload_after_backup="${3:-false}"
     
-    echo "[$(date +'%Y-%m-%d %H:%M:%S')] 开始备份流程 (密码: ${PASSWORD:0:2}****)"
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] 开始备份流程 (密码: 已设置)"
     
     backup_folder="${BACKUP_DIR}/${backup_name}"
     mkdir -p "$backup_folder"
@@ -619,7 +660,7 @@ perform_backup() {
     
     # 加密
     echo "正在加密文件..."
-    openssl enc -aes256 -pbkdf2 -in "$zst_file" -out "$enc_file" -pass pass:"$PASSWORD" || {
+    openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -in "$zst_file" -out "$enc_file" -pass stdin <<< "$PASSWORD" || {
         echo "加密失败!"; rm -f "$enc_file"; return 1
     }
     rm -f "$zst_file"
@@ -632,7 +673,7 @@ perform_backup() {
     [ -f "${enc_file%.aes}${SPLIT_SUFFIX}" ] || rm -f "$enc_file"
     
     # ============================================================
-    # 新增：001文件头混淆（偏移量存储方案）
+    # 001文件头混淆（偏移量存储方案）
     # ============================================================
     if [ "$OBFUSCATE_HEADER" = "true" ]; then
         local clean_prefix="${enc_file%.aes}"
@@ -717,7 +758,7 @@ manual_upload() {
         exit 1
     fi
     
-    echo "开始手动上传目录: $dir_to_backup (密码: ${PASSWORD:0:2}****)"
+    echo "开始手动上传目录: $dir_to_backup (密码: 已设置)"
     
     # 使用目录名作为备份名
     local dir_name=$(basename "$dir_to_backup")
@@ -744,7 +785,7 @@ backup_specific_directory() {
         fi
     fi
     
-    echo "开始备份指定目录: $dir_to_backup (密码: ${PASSWORD:0:2}****)"
+    echo "开始备份指定目录: $dir_to_backup (密码: 已设置)"
     
     # 使用目录名作为备份名
     local dir_name=$(basename "$dir_to_backup")
@@ -811,7 +852,7 @@ perform_restore() {
         backup_dir="${TEMP_DIR}/${backup_name}"
         backup_prefix="${backup_dir}/${backup_name}"
         
-        echo "从网盘下载备份文件: ${backup_name} (密码: ${PASSWORD:0:2}****)"
+        echo "从网盘下载备份文件: ${backup_name} (密码: 已设置)"
         mkdir -p "$backup_dir"
         
         # 先检查本地是否已有部分文件
@@ -951,8 +992,8 @@ perform_restore() {
     # 解密
     echo "正在解密文件..."
     zst_file="${enc_file%.aes}"
-    openssl enc -d -aes256 -pbkdf2 -in "$enc_file" -out "$zst_file" -pass pass:"$PASSWORD" || {
-        echo "解密失败!"; rm -f "$zst_file"; exit 1
+    openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -in "$enc_file" -out "$zst_file" -pass stdin <<< "$PASSWORD" || {
+        echo "解密失败! 请检查密码是否正确。"; rm -f "$zst_file"; exit 1
     }
     rm -f "$enc_file"
 
@@ -981,7 +1022,7 @@ args_file=$(mktemp)
 while [ $# -gt 0 ]; do
     case "$1" in
         -pwd)
-            shift 2
+            shift
             ;;
         *)
             echo "$1" >> "$args_file"
